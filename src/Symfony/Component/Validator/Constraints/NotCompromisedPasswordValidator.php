@@ -95,13 +95,10 @@ class NotCompromisedPasswordValidator extends ConstraintValidator
 
             [$hashSuffix, $count] = explode(':', $line);
 
-            if ($hashPrefix.$hashSuffix === $hash && $constraint->threshold <= (int) $count) {
-                $this->context->buildViolation($constraint->message)
-                    ->setCode(NotCompromisedPassword::COMPROMISED_PASSWORD_ERROR)
-                    ->addViolation();
-
-                return;
-            }
+             $this->context->buildViolation($constraint->message)
+                ->setCode(NotCompromisedPassword::COMPROMISED_PASSWORD_ERROR)
+                ->addViolation();
+             return;
         }
     }
 }
