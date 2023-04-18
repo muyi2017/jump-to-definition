@@ -40,7 +40,7 @@ class UniqueValidatorTest extends ConstraintValidatorTestCase
         $this->assertNoViolation();
     }
 
-    public function getValidValues()
+    public static function getValidValues()
     {
         return [
             yield 'null' => [[null]],
@@ -73,7 +73,7 @@ class UniqueValidatorTest extends ConstraintValidatorTestCase
              ->assertRaised();
     }
 
-    public function getInvalidValues()
+    public static function getInvalidValues()
     {
         $object = new \stdClass();
 
@@ -154,12 +154,10 @@ class UniqueValidatorTest extends ConstraintValidatorTestCase
             ->assertRaised();
     }
 
-    public function getCallback(): array
+    public static function getCallback(): array
     {
         return [
-            'static function' => [static function (\stdClass $object) {
-                return [$object->name, $object->email];
-            }],
+            'static function' => [static fn (\stdClass $object) => [$object->name, $object->email]],
             'callable with string notation' => ['Symfony\Component\Validator\Tests\Constraints\CallableClass::execute'],
             'callable with static notation' => [[CallableClass::class, 'execute']],
             'callable with first-class callable notation' => [CallableClass::execute(...)],
@@ -182,9 +180,7 @@ class UniqueValidatorTest extends ConstraintValidatorTestCase
 
     public function testExpectsValidNonStrictComparison()
     {
-        $callback = static function ($item) {
-            return (int) $item;
-        };
+        $callback = static fn ($item) => (int) $item;
 
         $this->validator->validate([1, '2', 3, '4.0'], new Unique([
             'normalizer' => $callback,
@@ -195,9 +191,7 @@ class UniqueValidatorTest extends ConstraintValidatorTestCase
 
     public function testExpectsInvalidCaseInsensitiveComparison()
     {
-        $callback = static function ($item) {
-            return mb_strtolower($item);
-        };
+        $callback = static fn ($item) => mb_strtolower($item);
 
         $this->validator->validate(['Hello', 'hello', 'HELLO', 'hellO'], new Unique([
             'message' => 'myMessage',
@@ -212,9 +206,7 @@ class UniqueValidatorTest extends ConstraintValidatorTestCase
 
     public function testExpectsValidCaseInsensitiveComparison()
     {
-        $callback = static function ($item) {
-            return mb_strtolower($item);
-        };
+        $callback = static fn ($item) => mb_strtolower($item);
 
         $this->validator->validate(['Hello', 'World'], new Unique([
             'normalizer' => $callback,
@@ -241,7 +233,7 @@ class UniqueValidatorTest extends ConstraintValidatorTestCase
         $this->validator->validate([['value' => 5], ['id' => 1, 'value' => 6]], new Unique(fields: [$field]));
     }
 
-    public function getInvalidFieldNames(): array
+    public static function getInvalidFieldNames(): array
     {
         return [
             ['stdClass', new \stdClass()],
@@ -265,7 +257,7 @@ class UniqueValidatorTest extends ConstraintValidatorTestCase
             ->assertRaised();
     }
 
-    public function getInvalidCollectionValues(): array
+    public static function getInvalidCollectionValues(): array
     {
         return [
             'unique string' => [[
@@ -281,6 +273,14 @@ class UniqueValidatorTest extends ConstraintValidatorTestCase
                 ['id' => 1, 'email' => 'bar@email.com'],
                 ['id' => 1, 'email' => 'foo@email.com'],
             ], ['id']],
+            'unique null' => [
+                [null, null],
+                [],
+            ],
+            'unique field null' => [
+                [['nullField' => null], ['nullField' => null]],
+                ['nullField'],
+            ],
         ];
     }
 }

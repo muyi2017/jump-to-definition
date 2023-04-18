@@ -20,6 +20,7 @@ use Symfony\Component\HttpFoundation\Session\Session;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Component\Translation\LocaleSwitcher;
 
 class AppVariableTest extends TestCase
 {
@@ -43,7 +44,7 @@ class AppVariableTest extends TestCase
         $this->assertEquals($debugFlag, $this->appVariable->getDebug());
     }
 
-    public function debugDataProvider()
+    public static function debugDataProvider()
     {
         return [
             'debug on' => [true],
@@ -104,6 +105,16 @@ class AppVariableTest extends TestCase
         $this->assertEquals($user, $this->appVariable->getUser());
     }
 
+    public function testGetLocale()
+    {
+        $localeSwitcher = $this->createMock(LocaleSwitcher::class);
+        $this->appVariable->setLocaleSwitcher($localeSwitcher);
+
+        $localeSwitcher->method('getLocale')->willReturn('fr');
+
+        self::assertEquals('fr', $this->appVariable->getLocale());
+    }
+
     public function testGetTokenWithNoToken()
     {
         $tokenStorage = $this->createMock(TokenStorageInterface::class);
@@ -154,6 +165,13 @@ class AppVariableTest extends TestCase
     {
         $this->expectException(\RuntimeException::class);
         $this->appVariable->getSession();
+    }
+
+    public function testGetLocaleWithLocaleSwitcherNotSet()
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('The "app.locale" variable is not available.');
+        $this->appVariable->getLocale();
     }
 
     public function testGetFlashesWithNoRequest()
@@ -232,13 +250,13 @@ class AppVariableTest extends TestCase
     {
         $this->setRequestStack(new Request(attributes: ['_route' => 'some_route']));
 
-        $this->assertSame('some_route', $this->appVariable->getCurrent_Route());
+        $this->assertSame('some_route', $this->appVariable->getCurrent_route());
     }
 
     public function testGetCurrentRouteWithRequestStackNotSet()
     {
         $this->expectException(\RuntimeException::class);
-        $this->appVariable->getCurrent_Route();
+        $this->appVariable->getCurrent_route();
     }
 
     public function testGetCurrentRouteParameters()
@@ -246,20 +264,20 @@ class AppVariableTest extends TestCase
         $routeParams = ['some_param' => true];
         $this->setRequestStack(new Request(attributes: ['_route_params' => $routeParams]));
 
-        $this->assertSame($routeParams, $this->appVariable->getCurrent_Route_Parameters());
+        $this->assertSame($routeParams, $this->appVariable->getCurrent_route_parameters());
     }
 
     public function testGetCurrentRouteParametersWithoutAttribute()
     {
         $this->setRequestStack(new Request());
 
-        $this->assertSame([], $this->appVariable->getCurrent_Route_Parameters());
+        $this->assertSame([], $this->appVariable->getCurrent_route_parameters());
     }
 
     public function testGetCurrentRouteParametersWithRequestStackNotSet()
     {
         $this->expectException(\RuntimeException::class);
-        $this->appVariable->getCurrent_Route_Parameters();
+        $this->appVariable->getCurrent_route_parameters();
     }
 
     protected function setRequestStack($request)

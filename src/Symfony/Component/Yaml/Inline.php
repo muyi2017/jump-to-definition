@@ -34,7 +34,7 @@ class Inline
     private static bool $objectForMap = false;
     private static bool $constantSupport = false;
 
-    public static function initialize(int $flags, int $parsedLineNumber = null, string $parsedFilename = null)
+    public static function initialize(int $flags, int $parsedLineNumber = null, string $parsedFilename = null): void
     {
         self::$exceptionOnInvalidType = (bool) (Yaml::PARSE_EXCEPTION_ON_INVALID_TYPE & $flags);
         self::$objectSupport = (bool) (Yaml::PARSE_OBJECT & $flags);
@@ -50,7 +50,7 @@ class Inline
     /**
      * Converts a YAML string to a PHP value.
      *
-     * @param int   $flags      A bit field of PARSE_* constants to customize the YAML parser behavior
+     * @param int   $flags      A bit field of Yaml::PARSE_* constants to customize the YAML parser behavior
      * @param array $references Mapping of variable names to values
      *
      * @throws ParseException
@@ -77,7 +77,7 @@ class Inline
                 ++$i;
                 break;
             default:
-                $result = self::parseScalar($value, $flags, null, $i, null === $tag, $references);
+                $result = self::parseScalar($value, $flags, null, $i, true, $references);
         }
 
         // some comments are allowed at the end
@@ -110,7 +110,11 @@ class Inline
 
                 return self::dumpNull($flags);
             case $value instanceof \DateTimeInterface:
-                return $value->format('c');
+                return $value->format(match (true) {
+                    !$length = \strlen(rtrim($value->format('u'), '0')) => 'c',
+                    $length < 4 => 'Y-m-d\TH:i:s.vP',
+                    default => 'Y-m-d\TH:i:s.uP',
+                });
             case $value instanceof \UnitEnum:
                 return sprintf('!php/const %s::%s', $value::class, $value->name);
             case \is_object($value):
@@ -123,13 +127,7 @@ class Inline
                 }
 
                 if (Yaml::DUMP_OBJECT_AS_MAP & $flags && ($value instanceof \stdClass || $value instanceof \ArrayObject)) {
-                    $output = [];
-
-                    foreach ($value as $key => $val) {
-                        $output[] = sprintf('%s: %s', self::dump($key, $flags), self::dump($val, $flags));
-                    }
-
-                    return sprintf('{ %s }', implode(', ', $output));
+                    return self::dumpHashArray($value, $flags);
                 }
 
                 if (Yaml::DUMP_EXCEPTION_ON_INVALID_TYPE & $flags) {
@@ -232,9 +230,23 @@ class Inline
             return sprintf('[%s]', implode(', ', $output));
         }
 
-        // hash
+        return self::dumpHashArray($value, $flags);
+    }
+
+    /**
+     * Dumps hash array to a YAML string.
+     *
+     * @param array|\ArrayObject|\stdClass $value The hash array to dump
+     * @param int                          $flags A bit field of Yaml::DUMP_* constants to customize the dumped YAML string
+     */
+    private static function dumpHashArray(array|\ArrayObject|\stdClass $value, int $flags): string
+    {
         $output = [];
         foreach ($value as $key => $val) {
+            if (\is_int($key) && Yaml::DUMP_NUMERIC_KEY_AS_STRING & $flags) {
+                $key = (string) $key;
+            }
+
             $output[] = sprintf('%s: %s', self::dump($key, $flags), self::dump($val, $flags));
         }
 
@@ -673,7 +685,6 @@ class Inline
                 }
 
                 return octdec($value);
-            // Optimize for returning strings.
             case \in_array($scalar[0], ['+', '-', '.'], true) || is_numeric($scalar[0]):
                 if (Parser::preg_match('{^[+-]?[0-9][0-9_]*$}', $scalar)) {
                     $scalar = str_replace('_', '', $scalar);
@@ -703,6 +714,10 @@ class Inline
 
                         if (Yaml::PARSE_DATETIME & $flags) {
                             return $time;
+                        }
+
+                        if ('' !== rtrim($time->format('u'), '0')) {
+                            return (float) $time->format('U.u');
                         }
 
                         try {

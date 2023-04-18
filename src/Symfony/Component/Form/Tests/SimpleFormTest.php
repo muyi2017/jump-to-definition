@@ -86,7 +86,7 @@ class SimpleFormTest extends TestCase
         $this->assertEquals($propertyPath, $form->getPropertyPath());
     }
 
-    public function provideFormNames()
+    public static function provideFormNames()
     {
         yield [null, null];
         yield ['', null];
@@ -243,7 +243,7 @@ class SimpleFormTest extends TestCase
         $this->assertSame($result, $child->isDisabled());
     }
 
-    public function getDisabledStates()
+    public static function getDisabledStates()
     {
         return [
             // parent, button, result
@@ -1112,12 +1112,12 @@ class SimpleFormTest extends TestCase
     {
         $config = new FormConfigBuilder('foo', null, new EventDispatcher());
 
-        $config->setIsEmptyCallback(function ($modelData): bool { return 'ccc' === $modelData; });
+        $config->setIsEmptyCallback(fn ($modelData): bool => 'ccc' === $modelData);
         $form = new Form($config);
         $form->setData('ccc');
         $this->assertTrue($form->isEmpty());
 
-        $config->setIsEmptyCallback(function (): bool { return false; });
+        $config->setIsEmptyCallback(fn (): bool => false);
         $form = new Form($config);
         $form->setData(null);
         $this->assertFalse($form->isEmpty());

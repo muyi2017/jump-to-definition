@@ -18,7 +18,7 @@ use Symfony\Component\Config\Tests\Resource\ResourceStub;
 
 class ConfigCacheTest extends TestCase
 {
-    private $cacheFile = null;
+    private $cacheFile;
 
     protected function setUp(): void
     {
@@ -96,7 +96,7 @@ class ConfigCacheTest extends TestCase
         $this->assertFalse($cache->isFresh());
     }
 
-    public function debugModes(): array
+    public static function debugModes(): array
     {
         return [
             [true],

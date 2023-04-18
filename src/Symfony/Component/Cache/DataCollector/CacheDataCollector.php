@@ -31,12 +31,12 @@ class CacheDataCollector extends DataCollector implements LateDataCollectorInter
      */
     private array $instances = [];
 
-    public function addInstance(string $name, TraceableAdapter $instance)
+    public function addInstance(string $name, TraceableAdapter $instance): void
     {
         $this->instances[$name] = $instance;
     }
 
-    public function collect(Request $request, Response $response, \Throwable $exception = null)
+    public function collect(Request $request, Response $response, \Throwable $exception = null): void
     {
         $empty = ['calls' => [], 'adapters' => [], 'config' => [], 'options' => [], 'statistics' => []];
         $this->data = ['instances' => $empty, 'total' => $empty];
@@ -49,7 +49,7 @@ class CacheDataCollector extends DataCollector implements LateDataCollectorInter
         $this->data['total']['statistics'] = $this->calculateTotalStatistics();
     }
 
-    public function reset()
+    public function reset(): void
     {
         $this->data = [];
         foreach ($this->instances as $instance) {
@@ -57,7 +57,7 @@ class CacheDataCollector extends DataCollector implements LateDataCollectorInter
         }
     }
 
-    public function lateCollect()
+    public function lateCollect(): void
     {
         $this->data['instances']['calls'] = $this->cloneVar($this->data['instances']['calls']);
     }
@@ -115,7 +115,7 @@ class CacheDataCollector extends DataCollector implements LateDataCollectorInter
             /** @var TraceableAdapterEvent $call */
             foreach ($calls as $call) {
                 ++$statistics[$name]['calls'];
-                $statistics[$name]['time'] += $call->end - $call->start;
+                $statistics[$name]['time'] += ($call->end ?? microtime(true)) - $call->start;
                 if ('get' === $call->name) {
                     ++$statistics[$name]['reads'];
                     if ($call->hits) {
@@ -137,10 +137,8 @@ class CacheDataCollector extends DataCollector implements LateDataCollectorInter
                     $statistics[$name]['misses'] += $call->misses;
                 } elseif ('hasItem' === $call->name) {
                     ++$statistics[$name]['reads'];
-                    if (false === $call->result) {
-                        ++$statistics[$name]['misses'];
-                    } else {
-                        ++$statistics[$name]['hits'];
+                    foreach ($call->result ?? [] as $result) {
+                        ++$statistics[$name][$result ? 'hits' : 'misses'];
                     }
                 } elseif ('save' === $call->name) {
                     ++$statistics[$name]['writes'];

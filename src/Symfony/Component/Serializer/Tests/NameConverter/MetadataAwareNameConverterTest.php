@@ -58,9 +58,7 @@ final class MetadataAwareNameConverterTest extends TestCase
         $fallback = $this->createMock(NameConverterInterface::class);
         $fallback
             ->method('normalize')
-            ->willReturnCallback(function ($propertyName) {
-                return strtoupper($propertyName);
-            })
+            ->willReturnCallback(fn ($propertyName) => strtoupper($propertyName))
         ;
 
         $nameConverter = new MetadataAwareNameConverter($classMetadataFactory, $fallback);
@@ -90,9 +88,7 @@ final class MetadataAwareNameConverterTest extends TestCase
         $fallback = $this->createMock(NameConverterInterface::class);
         $fallback
             ->method('denormalize')
-            ->willReturnCallback(function ($propertyName) {
-                return strtolower($propertyName);
-            })
+            ->willReturnCallback(fn ($propertyName) => strtolower($propertyName))
         ;
 
         $nameConverter = new MetadataAwareNameConverter($classMetadataFactory, $fallback);
@@ -100,7 +96,7 @@ final class MetadataAwareNameConverterTest extends TestCase
         $this->assertEquals($expected, $nameConverter->denormalize($propertyName, SerializedNameDummy::class));
     }
 
-    public function attributeProvider(): array
+    public static function attributeProvider(): array
     {
         return [
             ['foo', 'baz'],
@@ -110,7 +106,7 @@ final class MetadataAwareNameConverterTest extends TestCase
         ];
     }
 
-    public function fallbackAttributeProvider(): array
+    public static function fallbackAttributeProvider(): array
     {
         return [
             ['foo', 'baz'],
@@ -144,7 +140,7 @@ final class MetadataAwareNameConverterTest extends TestCase
         $this->assertEquals($expected, $nameConverter->denormalize($propertyName, OtherSerializedNameDummy::class, null, $context));
     }
 
-    public function attributeAndContextProvider()
+    public static function attributeAndContextProvider()
     {
         return [
             ['buz', 'buz', ['groups' => ['a']]],
@@ -190,6 +186,7 @@ class NestedPathAndName
 {
     /**
      * @SerializedName("five")
+     *
      * @SerializedPath("[one][two][three]")
      */
     public $foo;

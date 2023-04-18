@@ -1,4 +1,4 @@
-name: Static analysis
+name: Psalm
 
 on:
   pull_request: ~
@@ -19,12 +19,13 @@ jobs:
     name: Psalm
     runs-on: Ubuntu-20.04
 
+    env:
+      php-version: '8.1'
     steps:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.1'
-          extensions: "json,couchbase,memcached,mongodb,redis,xsl,ldap,dom"
+          php-version: ${{ env.php-version }}
           ini-values: "memory_limit=-1"
           coverage: none
 
@@ -42,15 +43,17 @@ jobs:
           ([ -d "$COMPOSER_HOME" ] || mkdir "$COMPOSER_HOME") && cp .github/composer-config.json "$COMPOSER_HOME/config.json"
           export COMPOSER_ROOT_VERSION=$(grep ' VERSION = ' src/Symfony/Component/HttpKernel/Kernel.php | grep -P -o '[0-9]+\.[0-9]+').x-dev
           composer remove --dev --no-update --no-interaction symfony/phpunit-bridge
-          composer require --no-progress --ansi psalm/phar phpunit/phpunit:^9.5 php-http/discovery psr/event-dispatcher mongodb/mongodb
+          composer require --no-progress --ansi --no-plugins psalm/phar phpunit/phpunit:^9.5 php-http/discovery psr/event-dispatcher mongodb/mongodb jetbrains/phpstorm-stubs
 
       - name: Generate Psalm baseline
         run: |
           git checkout composer.json
           git checkout -m ${{ github.base_ref }}
 
-          # to be removed when psalm adds support for intersection types
+          # @todo intersection types are broken in Psalm
+          # @see https://github.com/vimeo/psalm/issues/7520
           sed -i 's/Uuid&/Uuid|/' src/Symfony/Component/Uid/Factory/TimeBasedUuidFactory.php
+          sed -i 's/Interface&/Interface|/' src/Symfony/Component/HttpFoundation/Session/Storage/Handler/MigratingSessionHandler.php
           ./vendor/bin/psalm.phar --set-baseline=.github/psalm/psalm.baseline.xml --no-progress
           git checkout -m FETCH_HEAD
 

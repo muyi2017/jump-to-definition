@@ -1142,7 +1142,7 @@ class FilesystemTest extends FilesystemTestCase
         $this->assertEquals($expectedPath, $path);
     }
 
-    public function providePathsForMakePathRelative()
+    public static function providePathsForMakePathRelative()
     {
         $paths = [
             ['/var/lib/symfony/src/Symfony/', '/var/lib/symfony/src/Symfony/Component', '../'],
@@ -1430,7 +1430,7 @@ class FilesystemTest extends FilesystemTestCase
         $this->assertEquals($expectedResult, $result);
     }
 
-    public function providePathsForIsAbsolutePath()
+    public static function providePathsForIsAbsolutePath()
     {
         return [
             ['/var/lib', true],
@@ -1768,7 +1768,7 @@ class FilesystemTest extends FilesystemTestCase
             $this->markTestSkipped('This test is specific to Windows.');
         }
 
-        if (($userProfilePath = getenv('USERPROFILE')) === false || !is_dir($userProfilePath)) {
+        if (false === ($userProfilePath = getenv('USERPROFILE')) || !is_dir($userProfilePath)) {
             throw new \RuntimeException('Failed to retrieve user profile path.');
         }
 

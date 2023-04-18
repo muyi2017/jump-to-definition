@@ -402,14 +402,14 @@ class ErrorHandlerTest extends TestCase
         }
     }
 
-    public function handleExceptionProvider(): array
+    public static function handleExceptionProvider(): array
     {
         return [
             ['Uncaught Exception: foo', new \Exception('foo')],
             ['Uncaught Exception: foo', new class('foo') extends \RuntimeException {
             }],
-            ['Uncaught Exception: foo stdClass@anonymous bar', new \RuntimeException('foo '.\get_class(new class() extends \stdClass {
-            }).' bar')],
+            ['Uncaught Exception: foo stdClass@anonymous bar', new \RuntimeException('foo '.(new class() extends \stdClass {
+            })::class.' bar')],
             ['Uncaught Error: bar', new \Error('bar')],
             ['Uncaught ccc', new \ErrorException('ccc')],
         ];
@@ -602,7 +602,7 @@ class ErrorHandlerTest extends TestCase
         }
     }
 
-    public function errorHandlerWhenLoggingProvider(): iterable
+    public static function errorHandlerWhenLoggingProvider(): iterable
     {
         foreach ([false, true] as $previousHandlerWasDefined) {
             foreach ([false, true] as $loggerSetsAnotherHandler) {

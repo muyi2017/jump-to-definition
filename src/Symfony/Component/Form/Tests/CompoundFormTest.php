@@ -583,7 +583,7 @@ class CompoundFormTest extends TestCase
         $this->assertSame('Bernhard', $object['name']);
     }
 
-    public function requestMethodProvider()
+    public static function requestMethodProvider()
     {
         return [
             ['POST'],
@@ -955,10 +955,8 @@ class CompoundFormTest extends TestCase
         $this->form->add($field1);
         $this->form->add($field2);
 
-        $assertChildViewsEqual = function (array $childViews) {
-            return function (FormView $view) use ($childViews) {
-                $this->assertSame($childViews, $view->children);
-            };
+        $assertChildViewsEqual = fn (array $childViews) => function (FormView $view) use ($childViews) {
+            $this->assertSame($childViews, $view->children);
         };
 
         // First create the view

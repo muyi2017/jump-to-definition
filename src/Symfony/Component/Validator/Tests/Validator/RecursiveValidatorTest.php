@@ -1284,7 +1284,7 @@ class RecursiveValidatorTest extends TestCase
         }
     }
 
-    public function getConstraintMethods()
+    public static function getConstraintMethods()
     {
         return [
             ['addPropertyConstraint'],
@@ -1292,7 +1292,7 @@ class RecursiveValidatorTest extends TestCase
         ];
     }
 
-    public function getTestReplaceDefaultGroup()
+    public static function getTestReplaceDefaultGroup()
     {
         return [
             [
@@ -2085,7 +2085,7 @@ class RecursiveValidatorTest extends TestCase
         $validator = $this
             ->getMockBuilder(RecursiveValidator::class)
             ->disableOriginalConstructor()
-            ->setMethods(['startContext'])
+            ->onlyMethods(['startContext'])
             ->getMock();
         $validator
             ->expects($this->once())
@@ -2119,7 +2119,7 @@ class RecursiveValidatorTest extends TestCase
         $validator = $this
             ->getMockBuilder(RecursiveValidator::class)
             ->disableOriginalConstructor()
-            ->setMethods(['startContext'])
+            ->onlyMethods(['startContext'])
             ->getMock();
         $validator
             ->expects($this->once())
@@ -2362,7 +2362,7 @@ final class TestConstraintHashesDoNotCollide extends Constraint
 
 final class TestConstraintHashesDoNotCollideValidator extends ConstraintValidator
 {
-    public function validate($value, Constraint $constraint)
+    public function validate($value, Constraint $constraint): void
     {
         if (!$value instanceof Entity) {
             throw new \LogicException();

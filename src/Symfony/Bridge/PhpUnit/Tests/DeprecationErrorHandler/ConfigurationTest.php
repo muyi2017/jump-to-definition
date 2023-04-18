@@ -179,7 +179,7 @@ class ConfigurationTest extends TestCase
         $this->assertTrue($configuration->shouldDisplayStackTrace('interesting'));
     }
 
-    public function provideItCanBeDisabled(): array
+    public static function provideItCanBeDisabled(): array
     {
         return [
             ['disabled', false],
@@ -232,6 +232,103 @@ class ConfigurationTest extends TestCase
         $this->assertFalse($configuration->verboseOutput('indirect'));
         $this->assertFalse($configuration->verboseOutput('self'));
         $this->assertFalse($configuration->verboseOutput('other'));
+    }
+
+    /**
+     * @dataProvider provideDataForToleratesForGroup
+     */
+    public function testToleratesForIndividualGroups(string $deprecationsHelper, array $deprecationsPerType, array $expected)
+    {
+        $configuration = Configuration::fromUrlEncodedString($deprecationsHelper);
+
+        $groups = $this->buildGroups($deprecationsPerType);
+
+        foreach ($expected as $groupName => $tolerates) {
+            $this->assertSame($tolerates, $configuration->toleratesForGroup($groupName, $groups), sprintf('Deprecation type "%s" is %s', $groupName, $tolerates ? 'tolerated' : 'not tolerated'));
+        }
+    }
+
+    public static function provideDataForToleratesForGroup() {
+
+        yield 'total threshold not reached' => ['max[total]=1', [
+            'unsilenced' => 0,
+            'self' => 0,
+            'legacy' => 1, // Legacy group is ignored in total threshold
+            'other' => 0,
+            'direct' => 1,
+            'indirect' => 0,
+        ], [
+            'unsilenced' => true,
+            'self' => true,
+            'legacy' => true,
+            'other' => true,
+            'direct' => true,
+            'indirect' => true,
+        ]];
+
+        yield 'total threshold reached' => ['max[total]=1', [
+            'unsilenced' => 0,
+            'self' => 0,
+            'legacy' => 1,
+            'other' => 0,
+            'direct' => 1,
+            'indirect' => 1,
+        ], [
+            'unsilenced' => false,
+            'self' => false,
+            'legacy' => false,
+            'other' => false,
+            'direct' => false,
+            'indirect' => false,
+        ]];
+
+        yield 'direct threshold reached' => ['max[total]=99&max[direct]=0', [
+            'unsilenced' => 0,
+            'self' => 0,
+            'legacy' => 1,
+            'other' => 0,
+            'direct' => 1,
+            'indirect' => 1,
+        ], [
+            'unsilenced' => true,
+            'self' => true,
+            'legacy' => true,
+            'other' => true,
+            'direct' => false,
+            'indirect' => true,
+        ]];
+
+        yield 'indirect & self threshold reached' => ['max[total]=99&max[direct]=0&max[self]=0', [
+            'unsilenced' => 0,
+            'self' => 1,
+            'legacy' => 1,
+            'other' => 1,
+            'direct' => 1,
+            'indirect' => 1,
+        ], [
+            'unsilenced' => true,
+            'self' => false,
+            'legacy' => true,
+            'other' => true,
+            'direct' => false,
+            'indirect' => true,
+        ]];
+
+        yield 'indirect & self threshold not reached' => ['max[total]=99&max[direct]=2&max[self]=2', [
+            'unsilenced' => 0,
+            'self' => 1,
+            'legacy' => 1,
+            'other' => 1,
+            'direct' => 1,
+            'indirect' => 1,
+        ], [
+            'unsilenced' => true,
+            'self' => true,
+            'legacy' => true,
+            'other' => true,
+            'direct' => true,
+            'indirect' => true,
+        ]];
     }
 
     private function buildGroups($counts)
@@ -385,10 +482,24 @@ class ConfigurationTest extends TestCase
     {
         $filename = $this->createFile();
         chmod($filename, 0444);
-        $this->expectError();
-        $this->expectErrorMessageMatches('/[Ff]ailed to open stream: Permission denied/');
         $configuration = Configuration::fromUrlEncodedString('generateBaseline=true&baselineFile='.urlencode($filename));
-        $configuration->writeBaseline();
+
+        $this->expectException(\ErrorException::class);
+        $this->expectExceptionMessageMatches('/[Ff]ailed to open stream: Permission denied/');
+
+        set_error_handler(static function (int $errno, string $errstr, string $errfile = null, int $errline = null): bool {
+            if ($errno & (E_WARNING | E_WARNING)) {
+                throw new \ErrorException($errstr, 0, $errno, $errfile, $errline);
+            }
+
+            return false;
+        });
+
+        try {
+            $configuration->writeBaseline();
+        } finally {
+            restore_error_handler();
+        }
     }
 
     public function testExistingIgnoreFile()

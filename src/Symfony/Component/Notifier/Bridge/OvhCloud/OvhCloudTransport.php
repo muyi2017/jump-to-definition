@@ -35,7 +35,7 @@ final class OvhCloudTransport extends AbstractTransport
     private ?string $sender = null;
     private bool $noStopClause = false;
 
-    public function __construct(string $applicationKey, #[\SensitiveParameter] string $applicationSecret, string $consumerKey, string $serviceName, HttpClientInterface $client = null, EventDispatcherInterface $dispatcher = null)
+    public function __construct(string $applicationKey, #[\SensitiveParameter] string $applicationSecret, #[\SensitiveParameter] string $consumerKey, string $serviceName, HttpClientInterface $client = null, EventDispatcherInterface $dispatcher = null)
     {
         $this->applicationKey = $applicationKey;
         $this->applicationSecret = $applicationSecret;
@@ -48,10 +48,10 @@ final class OvhCloudTransport extends AbstractTransport
     public function __toString(): string
     {
         if (null !== $this->sender) {
-            return sprintf('ovhcloud://%s?consumer_key=%s&service_name=%s&sender=%s&no_stop_clause=%s', $this->getEndpoint(), $this->consumerKey, $this->serviceName, $this->sender, (int) $this->noStopClause);
+            return sprintf('ovhcloud://%s?service_name=%s&sender=%s', $this->getEndpoint(), $this->serviceName, $this->sender);
         }
 
-        return sprintf('ovhcloud://%s?consumer_key=%s&service_name=%s&no_stop_clause=%s', $this->getEndpoint(), $this->consumerKey, $this->serviceName, (int) $this->noStopClause);
+        return sprintf('ovhcloud://%s?service_name=%s', $this->getEndpoint(), $this->serviceName);
     }
 
     /**
@@ -133,6 +133,10 @@ final class OvhCloudTransport extends AbstractTransport
         }
 
         $success = $response->toArray(false);
+
+        if (!isset($success['ids'][0])) {
+            throw new TransportException(sprintf('Attempt to send the SMS to invalid receivers: "%s".', implode(',', $success['invalidReceivers'])), $response);
+        }
 
         $sentMessage = new SentMessage($message, (string) $this);
         $sentMessage->setMessageId($success['ids'][0]);

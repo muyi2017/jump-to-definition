@@ -24,6 +24,7 @@ use Symfony\Component\Security\Csrf\CsrfToken;
 use Symfony\Component\Security\Http\Authenticator\AuthenticatorInterface;
 use Symfony\Component\Security\Http\Event\LogoutEvent;
 use Symfony\Component\Security\Http\ParameterBagUtils;
+use Symfony\Component\Security\Http\SecurityRequestAttributes;
 use Symfony\Contracts\Service\ServiceProviderInterface;
 
 /**
@@ -37,6 +38,10 @@ use Symfony\Contracts\Service\ServiceProviderInterface;
  */
 class Security extends LegacySecurity
 {
+    public const ACCESS_DENIED_ERROR = SecurityRequestAttributes::ACCESS_DENIED_ERROR;
+    public const AUTHENTICATION_ERROR = SecurityRequestAttributes::AUTHENTICATION_ERROR;
+    public const LAST_USERNAME = SecurityRequestAttributes::LAST_USERNAME;
+
     public function __construct(private readonly ContainerInterface $container, private readonly array $authenticators = [])
     {
         parent::__construct($container, false);
@@ -51,8 +56,10 @@ class Security extends LegacySecurity
      * @param UserInterface $user              The user to authenticate
      * @param string|null   $authenticatorName The authenticator name (e.g. "form_login") or service id (e.g. SomeApiKeyAuthenticator::class) - required only if multiple authenticators are configured
      * @param string|null   $firewallName      The firewall name - required only if multiple firewalls are configured
+     *
+     * @return Response|null The authenticator success response if any
      */
-    public function login(UserInterface $user, string $authenticatorName = null, string $firewallName = null): void
+    public function login(UserInterface $user, string $authenticatorName = null, string $firewallName = null): ?Response
     {
         $request = $this->container->get('request_stack')->getCurrentRequest();
         $firewallName ??= $this->getFirewallConfig($request)?->getName();
@@ -64,7 +71,8 @@ class Security extends LegacySecurity
         $authenticator = $this->getAuthenticator($authenticatorName, $firewallName);
 
         $this->container->get('security.user_checker')->checkPreAuth($user);
-        $this->container->get('security.user_authenticator')->authenticateUser($user, $authenticator, $request);
+
+        return $this->container->get('security.authenticator.managers_locator')->get($firewallName)->authenticateUser($user, $authenticator, $request);
     }
 
     /**
@@ -111,7 +119,7 @@ class Security extends LegacySecurity
 
     private function getAuthenticator(?string $authenticatorName, string $firewallName): AuthenticatorInterface
     {
-        if (!\array_key_exists($firewallName, $this->authenticators)) {
+        if (!isset($this->authenticators[$firewallName])) {
             throw new LogicException(sprintf('No authenticators found for firewall "%s".', $firewallName));
         }
 
@@ -138,7 +146,7 @@ class Security extends LegacySecurity
         $authenticatorId = 'security.authenticator.'.$authenticatorName.'.'.$firewallName;
 
         if (!$firewallAuthenticatorLocator->has($authenticatorId)) {
-            throw new LogicException(sprintf('Unable to find an authenticator named "%s" for the firewall "%s". Available authenticators: "%s".', $authenticatorName, implode('", "', array_keys($firewallAuthenticatorLocator->getProvidedServices()))));
+            throw new LogicException(sprintf('Unable to find an authenticator named "%s" for the firewall "%s". Available authenticators: "%s".', $authenticatorName, $firewallName, implode('", "', array_keys($firewallAuthenticatorLocator->getProvidedServices()))));
         }
 
         return $firewallAuthenticatorLocator->get($authenticatorId);

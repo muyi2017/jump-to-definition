@@ -45,16 +45,14 @@ class CliDescriptorTest extends TestCase
     {
         $output = new BufferedOutput();
         $output->setDecorated($decorated);
-        $descriptor = new CliDescriptor(new CliDumper(function ($s) {
-            return $s;
-        }));
+        $descriptor = new CliDescriptor(new CliDumper(fn ($s) => $s));
 
         $descriptor->describe($output, new Data([[123]]), $context + ['timestamp' => 1544804268.3668], 1);
 
         $this->assertStringMatchesFormat(trim($expectedOutput), str_replace(\PHP_EOL, "\n", trim($output->fetch())));
     }
 
-    public function provideContext()
+    public static function provideContext()
     {
         yield 'source' => [
             [

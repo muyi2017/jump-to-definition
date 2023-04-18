@@ -11,11 +11,13 @@
 
 namespace Symfony\Component\HttpFoundation\Tests\Session\Storage\Handler;
 
+use Doctrine\DBAL\Schema\Schema;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Session\Storage\Handler\PdoSessionHandler;
 
 /**
  * @requires extension pdo_sqlite
+ *
  * @group time-sensitive
  */
 class PdoSessionHandlerTest extends TestCase
@@ -155,9 +157,7 @@ class PdoSessionHandlerTest extends TestCase
         $selectStmt = $this->createMock(\PDOStatement::class);
         $insertStmt = $this->createMock(\PDOStatement::class);
 
-        $pdo->prepareResult = function ($statement) use ($selectStmt, $insertStmt) {
-            return str_starts_with($statement, 'INSERT') ? $insertStmt : $selectStmt;
-        };
+        $pdo->prepareResult = fn ($statement) => str_starts_with($statement, 'INSERT') ? $insertStmt : $selectStmt;
 
         $content = 'foobar';
         $stream = $this->createStream($content);
@@ -326,7 +326,36 @@ class PdoSessionHandlerTest extends TestCase
         }
     }
 
-    public function provideUrlDsnPairs()
+    public function testConfigureSchemaDifferentDatabase()
+    {
+        $schema = new Schema();
+
+        $pdoSessionHandler = new PdoSessionHandler($this->getMemorySqlitePdo());
+        $pdoSessionHandler->configureSchema($schema, fn () => false);
+        $this->assertFalse($schema->hasTable('sessions'));
+    }
+
+    public function testConfigureSchemaSameDatabase()
+    {
+        $schema = new Schema();
+
+        $pdoSessionHandler = new PdoSessionHandler($this->getMemorySqlitePdo());
+        $pdoSessionHandler->configureSchema($schema, fn () => true);
+        $this->assertTrue($schema->hasTable('sessions'));
+    }
+
+    public function testConfigureSchemaTableExistsPdo()
+    {
+        $schema = new Schema();
+        $schema->createTable('sessions');
+
+        $pdoSessionHandler = new PdoSessionHandler($this->getMemorySqlitePdo());
+        $pdoSessionHandler->configureSchema($schema, fn () => true);
+        $table = $schema->getTable('sessions');
+        $this->assertEmpty($table->getColumns(), 'The table was not overwritten');
+    }
+
+    public static function provideUrlDsnPairs()
     {
         yield ['mysql://localhost/test', 'mysql:host=localhost;dbname=test;'];
         yield ['mysql://localhost/test?charset=utf8mb4', 'mysql:charset=utf8mb4;host=localhost;dbname=test;'];

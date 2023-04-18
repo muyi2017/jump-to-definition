@@ -53,11 +53,11 @@ class RetryableHttpClient implements HttpClientInterface, ResetInterface
             return new AsyncResponse($this->client, $method, $url, $options);
         }
 
-        $retryCount = 0;
-        $content = '';
-        $firstChunk = null;
+        return new AsyncResponse($this->client, $method, $url, $options, function (ChunkInterface $chunk, AsyncContext $context) use ($method, $url, $options) {
+            static $retryCount = 0;
+            static $content = '';
+            static $firstChunk;
 
-        return new AsyncResponse($this->client, $method, $url, $options, function (ChunkInterface $chunk, AsyncContext $context) use ($method, $url, $options, &$retryCount, &$content, &$firstChunk) {
             $exception = null;
             try {
                 if ($context->getInfo('canceled') || $chunk->isTimeout() || null !== $chunk->getInformationalStatus()) {
@@ -73,7 +73,7 @@ class RetryableHttpClient implements HttpClientInterface, ResetInterface
                 if ('' !== $context->getInfo('primary_ip')) {
                     $shouldRetry = $this->strategy->shouldRetry($context, null, $exception);
                     if (null === $shouldRetry) {
-                        throw new \LogicException(sprintf('The "%s::shouldRetry()" method must not return null when called with an exception.', \get_class($this->strategy)));
+                        throw new \LogicException(sprintf('The "%s::shouldRetry()" method must not return null when called with an exception.', $this->strategy::class));
                     }
 
                     if (false === $shouldRetry) {
@@ -104,7 +104,7 @@ class RetryableHttpClient implements HttpClientInterface, ResetInterface
                 }
 
                 if (null === $shouldRetry = $this->strategy->shouldRetry($context, $content, null)) {
-                    throw new \LogicException(sprintf('The "%s::shouldRetry()" method must not return null when called with a body.', \get_class($this->strategy)));
+                    throw new \LogicException(sprintf('The "%s::shouldRetry()" method must not return null when called with a body.', $this->strategy::class));
                 }
 
                 if (false === $shouldRetry) {

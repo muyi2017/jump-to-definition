@@ -54,7 +54,7 @@ class InlineTest extends TestCase
         $this->assertSame($value, $actual);
     }
 
-    public function getTestsForParsePhpConstants()
+    public static function getTestsForParsePhpConstants()
     {
         return [
             ['!php/const Symfony\Component\Yaml\Yaml::PARSE_CONSTANT', Yaml::PARSE_CONSTANT],
@@ -225,7 +225,7 @@ class InlineTest extends TestCase
         $this->assertSame($expected, Inline::parse($yaml, 0, $references));
     }
 
-    public function getDataForParseReferences()
+    public static function getDataForParseReferences()
     {
         return [
             'scalar' => ['*var', 'var-value'],
@@ -275,7 +275,7 @@ class InlineTest extends TestCase
         Inline::parse(sprintf('{ foo: %sfoo }', $indicator));
     }
 
-    public function getReservedIndicators()
+    public static function getReservedIndicators()
     {
         return [['@'], ['`']];
     }
@@ -291,7 +291,7 @@ class InlineTest extends TestCase
         Inline::parse(sprintf('{ foo: %sfoo }', $indicator));
     }
 
-    public function getScalarIndicators()
+    public static function getScalarIndicators()
     {
         return [['|'], ['>'], ['%']];
     }
@@ -304,7 +304,7 @@ class InlineTest extends TestCase
         $this->assertSame($expected, Inline::isHash($array));
     }
 
-    public function getDataForIsHash()
+    public static function getDataForIsHash()
     {
         return [
             [[], false],
@@ -314,7 +314,7 @@ class InlineTest extends TestCase
         ];
     }
 
-    public function getTestsForParse()
+    public static function getTestsForParse()
     {
         return [
             ['', ''],
@@ -400,7 +400,7 @@ class InlineTest extends TestCase
         ];
     }
 
-    public function getTestsForParseWithMapObjects()
+    public static function getTestsForParseWithMapObjects()
     {
         return [
             ['', ''],
@@ -481,7 +481,7 @@ class InlineTest extends TestCase
         ];
     }
 
-    public function getTestsForDump()
+    public static function getTestsForDump()
     {
         return [
             ['null', null],
@@ -563,9 +563,10 @@ class InlineTest extends TestCase
     /**
      * @dataProvider getTimestampTests
      */
-    public function testParseTimestampAsUnixTimestampByDefault(string $yaml, int $year, int $month, int $day, int $hour, int $minute, int $second)
+    public function testParseTimestampAsUnixTimestampByDefault(string $yaml, int $year, int $month, int $day, int $hour, int $minute, int $second, int $microsecond)
     {
-        $this->assertSame(gmmktime($hour, $minute, $second, $month, $day, $year), Inline::parse($yaml));
+        $expectedDate = (new \DateTimeImmutable($yaml, new \DateTimeZone('UTC')))->format('U');
+        $this->assertSame($microsecond ? (float) "$expectedDate.$microsecond" : (int) $expectedDate, Inline::parse($yaml));
     }
 
     /**
@@ -583,7 +584,7 @@ class InlineTest extends TestCase
         $this->assertSame($timezone, $date->format('O'));
     }
 
-    public function getTimestampTests(): array
+    public static function getTimestampTests(): array
     {
         return [
             'canonical' => ['2001-12-15T02:59:43.1Z', 2001, 12, 15, 2, 59, 43, 100000, '+0000'],
@@ -617,6 +618,98 @@ class InlineTest extends TestCase
         $this->assertSame($expected, Inline::dump($dateTime));
     }
 
+    /**
+     * @dataProvider getNumericKeyData
+     */
+    public function testDumpNumericKeyAsString(array|int $input, int $flags, string $expected)
+    {
+        $this->assertSame($expected, Inline::dump($input, $flags));
+    }
+
+    public static function getNumericKeyData()
+    {
+        yield 'Int with flag' => [
+            200,
+            Yaml::DUMP_NUMERIC_KEY_AS_STRING,
+            '200',
+        ];
+
+        yield 'Int key with flag' => [
+            [200 => 'foo'],
+            Yaml::DUMP_NUMERIC_KEY_AS_STRING,
+            "{ '200': foo }",
+        ];
+
+        yield 'Int value with flag' => [
+            [200 => 200],
+            Yaml::DUMP_NUMERIC_KEY_AS_STRING,
+            "{ '200': 200 }",
+        ];
+
+        yield 'String key with flag' => [
+            ['200' => 'foo'],
+            Yaml::DUMP_NUMERIC_KEY_AS_STRING,
+            "{ '200': foo }",
+        ];
+
+        yield 'Mixed with flag' => [
+            [42 => 'a', 'b' => 'c', 'd' => 43],
+            Yaml::DUMP_NUMERIC_KEY_AS_STRING,
+            "{ '42': a, b: c, d: 43 }",
+        ];
+
+        yield 'Auto-index with flag' => [
+            ['a', 'b', 42],
+            Yaml::DUMP_NUMERIC_KEY_AS_STRING,
+            '[a, b, 42]',
+        ];
+
+        yield 'Complex mixed array with flag' => [
+            [
+                42 => [
+                    'foo' => 43,
+                    44 => 'bar',
+                ],
+                45 => 'baz',
+                46,
+            ],
+            Yaml::DUMP_NUMERIC_KEY_AS_STRING,
+            "{ '42': { foo: 43, '44': bar }, '45': baz, '46': 46 }",
+        ];
+
+        yield 'Int tagged value with flag' => [
+            [
+                'count' => new TaggedValue('number', 5),
+            ],
+            Yaml::DUMP_NUMERIC_KEY_AS_STRING,
+            '{ count: !number 5 }',
+        ];
+
+        yield 'Array tagged value with flag' => [
+            [
+                'user' => new TaggedValue('metadata', [
+                    'john',
+                    42,
+                ]),
+            ],
+            Yaml::DUMP_NUMERIC_KEY_AS_STRING,
+            '{ user: !metadata [john, 42] }',
+        ];
+
+        $arrayObject = new \ArrayObject();
+        $arrayObject['foo'] = 'bar';
+        $arrayObject[42] = 'baz';
+        $arrayObject['baz'] = 43;
+
+        yield 'Object value with flag' => [
+            [
+                'user' => $arrayObject,
+            ],
+            Yaml::DUMP_NUMERIC_KEY_AS_STRING | Yaml::DUMP_OBJECT_AS_MAP,
+            "{ user: { foo: bar, '42': baz, baz: 43 } }",
+        ];
+    }
+
     public function testDumpUnitEnum()
     {
         $this->assertSame("!php/const Symfony\Component\Yaml\Tests\Fixtures\FooUnitEnum::BAR", Inline::dump(FooUnitEnum::BAR));
@@ -632,7 +725,7 @@ class InlineTest extends TestCase
         $this->assertSame(FooBackedEnum::BAR->value, Inline::parse("!php/enum Symfony\Component\Yaml\Tests\Fixtures\FooBackedEnum::BAR->value", Yaml::PARSE_CONSTANT));
     }
 
-    public function getDateTimeDumpTests()
+    public static function getDateTimeDumpTests()
     {
         $tests = [];
 
@@ -653,7 +746,7 @@ class InlineTest extends TestCase
         $this->assertSame('Hello world', Inline::parse($data));
     }
 
-    public function getBinaryData()
+    public static function getBinaryData()
     {
         return [
             'enclosed with double quotes' => ['!!binary "SGVsbG8gd29ybGQ="'],
@@ -673,7 +766,7 @@ class InlineTest extends TestCase
         Inline::parse($data);
     }
 
-    public function getInvalidBinaryData()
+    public static function getInvalidBinaryData()
     {
         return [
             'length not a multiple of four' => ['!!binary "SGVsbG8d29ybGQ="', '/The normalized base64 encoded data \(data without whitespace characters\) length must be a multiple of four \(\d+ bytes given\)/'],
@@ -715,7 +808,7 @@ class InlineTest extends TestCase
         $this->assertSame($expected, Inline::parse($yaml));
     }
 
-    public function getTestsForNullValues()
+    public static function getTestsForNullValues()
     {
         return [
             'null before closing curly brace' => ['{foo:}', ['foo' => null]],
@@ -738,7 +831,7 @@ class InlineTest extends TestCase
         $this->assertSame($expected, Inline::parse($yaml));
     }
 
-    public function getNotPhpCompatibleMappingKeyData()
+    public static function getNotPhpCompatibleMappingKeyData()
     {
         return [
             'boolean-true' => ['{true: "foo"}', ['true' => 'foo']],
@@ -784,6 +877,24 @@ class InlineTest extends TestCase
         $this->assertSame('', $value['foo']->getValue());
     }
 
+    public function testTagWithQuotedInteger()
+    {
+        $value = Inline::parse('!number "5"', Yaml::PARSE_CUSTOM_TAGS);
+
+        $this->assertInstanceOf(TaggedValue::class, $value);
+        $this->assertSame('number', $value->getTag());
+        $this->assertSame('5', $value->getValue());
+    }
+
+    public function testTagWithUnquotedInteger()
+    {
+        $value = Inline::parse('!number 5', Yaml::PARSE_CUSTOM_TAGS);
+
+        $this->assertInstanceOf(TaggedValue::class, $value);
+        $this->assertSame('number', $value->getTag());
+        $this->assertSame(5, $value->getValue());
+    }
+
     public function testUnfinishedInlineMap()
     {
         $this->expectException(ParseException::class);
@@ -799,7 +910,7 @@ class InlineTest extends TestCase
         self::assertSame($expected, Inline::parse($yaml));
     }
 
-    public function getTestsForOctalNumbers()
+    public static function getTestsForOctalNumbers()
     {
         return [
             'positive octal number' => [28, '0o34'],
@@ -816,7 +927,7 @@ class InlineTest extends TestCase
         self::assertSame($expected, Inline::parse($yaml));
     }
 
-    public function getTestsForOctalNumbersYaml11Notation()
+    public static function getTestsForOctalNumbersYaml11Notation()
     {
         return [
             'positive octal number' => ['034', '034'],
@@ -838,7 +949,7 @@ class InlineTest extends TestCase
         Inline::parse($value, Yaml::PARSE_OBJECT);
     }
 
-    public function phpObjectTagWithEmptyValueProvider()
+    public static function phpObjectTagWithEmptyValueProvider()
     {
         return [
             ['!php/object'],
@@ -872,7 +983,7 @@ class InlineTest extends TestCase
         Inline::parse(str_replace('!php/const', '!php/enum', $value), Yaml::PARSE_CONSTANT);
     }
 
-    public function phpConstTagWithEmptyValueProvider()
+    public static function phpConstTagWithEmptyValueProvider()
     {
         return [
             ['!php/const'],
@@ -908,7 +1019,7 @@ class InlineTest extends TestCase
         Inline::parse($value);
     }
 
-    public function unquotedExclamationMarkThrowsProvider()
+    public static function unquotedExclamationMarkThrowsProvider()
     {
         return [
             ['!'],
@@ -940,7 +1051,7 @@ class InlineTest extends TestCase
     }
 
     // This provider should stay consistent with unquotedExclamationMarkThrowsProvider
-    public function quotedExclamationMarkProvider()
+    public static function quotedExclamationMarkProvider()
     {
         return [
             ['!', '"!"'],
@@ -970,7 +1081,7 @@ class InlineTest extends TestCase
         $this->assertSame($expected, Inline::parse($yaml));
     }
 
-    public function ideographicSpaceProvider(): array
+    public static function ideographicSpaceProvider(): array
     {
         return [
             ["\u{3000}", '　'],

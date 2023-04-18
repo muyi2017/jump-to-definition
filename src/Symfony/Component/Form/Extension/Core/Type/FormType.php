@@ -38,6 +38,9 @@ class FormType extends BaseType
         ]));
     }
 
+    /**
+     * @return void
+     */
     public function buildForm(FormBuilderInterface $builder, array $options)
     {
         parent::buildForm($builder, $options);
@@ -66,6 +69,9 @@ class FormType extends BaseType
         $builder->setIsEmptyCallback($options['is_empty_callback']);
     }
 
+    /**
+     * @return void
+     */
     public function buildView(FormView $view, FormInterface $form, array $options)
     {
         parent::buildView($view, $form, $options);
@@ -84,16 +90,6 @@ class FormType extends BaseType
             }
 
             $helpTranslationParameters = array_merge($view->parent->vars['help_translation_parameters'], $helpTranslationParameters);
-
-            $rootFormAttrOption = $form->getRoot()->getConfig()->getOption('form_attr');
-            if ($options['form_attr'] || $rootFormAttrOption) {
-                $view->vars['attr']['form'] = \is_string($rootFormAttrOption) ? $rootFormAttrOption : $form->getRoot()->getName();
-                if (empty($view->vars['attr']['form'])) {
-                    throw new LogicException('"form_attr" option must be a string identifier on root form when it has no id.');
-                }
-            }
-        } elseif (\is_string($options['form_attr'])) {
-            $view->vars['id'] = $options['form_attr'];
         }
 
         $formConfig = $form->getConfig();
@@ -115,6 +111,9 @@ class FormType extends BaseType
         ]);
     }
 
+    /**
+     * @return void
+     */
     public function finishView(FormView $view, FormInterface $form, array $options)
     {
         $multipart = false;
@@ -129,42 +128,33 @@ class FormType extends BaseType
         $view->vars['multipart'] = $multipart;
     }
 
+    /**
+     * @return void
+     */
     public function configureOptions(OptionsResolver $resolver)
     {
         parent::configureOptions($resolver);
 
         // Derive "data_class" option from passed "data" object
-        $dataClass = function (Options $options) {
-            return isset($options['data']) && \is_object($options['data']) ? \get_class($options['data']) : null;
-        };
+        $dataClass = static fn (Options $options) => isset($options['data']) && \is_object($options['data']) ? $options['data']::class : null;
 
         // Derive "empty_data" closure from "data_class" option
-        $emptyData = function (Options $options) {
+        $emptyData = static function (Options $options) {
             $class = $options['data_class'];
 
             if (null !== $class) {
-                return function (FormInterface $form) use ($class) {
-                    return $form->isEmpty() && !$form->isRequired() ? null : new $class();
-                };
+                return static fn (FormInterface $form) => $form->isEmpty() && !$form->isRequired() ? null : new $class();
             }
 
-            return function (FormInterface $form) {
-                return $form->getConfig()->getCompound() ? [] : '';
-            };
+            return static fn (FormInterface $form) => $form->getConfig()->getCompound() ? [] : '';
         };
 
         // Wrap "post_max_size_message" in a closure to translate it lazily
-        $uploadMaxSizeMessage = function (Options $options) {
-            return function () use ($options) {
-                return $options['post_max_size_message'];
-            };
-        };
+        $uploadMaxSizeMessage = static fn (Options $options) => static fn () => $options['post_max_size_message'];
 
         // For any form that is not represented by a single HTML control,
         // errors should bubble up by default
-        $errorBubbling = function (Options $options) {
-            return $options['compound'] && !$options['inherit_data'];
-        };
+        $errorBubbling = static fn (Options $options) => $options['compound'] && !$options['inherit_data'];
 
         // If data is given, the form is locked to that data
         // (independent of its value)
@@ -201,7 +191,6 @@ class FormType extends BaseType
             'is_empty_callback' => null,
             'getter' => null,
             'setter' => null,
-            'form_attr' => false,
         ]);
 
         $resolver->setAllowedTypes('label_attr', 'array');
@@ -213,7 +202,6 @@ class FormType extends BaseType
         $resolver->setAllowedTypes('is_empty_callback', ['null', 'callable']);
         $resolver->setAllowedTypes('getter', ['null', 'callable']);
         $resolver->setAllowedTypes('setter', ['null', 'callable']);
-        $resolver->setAllowedTypes('form_attr', ['bool', 'string']);
 
         $resolver->setInfo('getter', 'A callable that accepts two arguments (the view data and the current form field) and must return a value.');
         $resolver->setInfo('setter', 'A callable that accepts three arguments (a reference to the view data, the submitted value and the current form field).');

@@ -14,6 +14,8 @@ namespace Symfony\Component\Clock;
 /**
  * A clock that always returns the same date, suitable for testing time-sensitive logic.
  *
+ * Consider using ClockSensitiveTrait in your test cases instead of using this class directly.
+ *
  * @author Nicolas Grekas <p@tchwork.com>
  */
 final class MockClock implements ClockInterface
@@ -45,6 +47,15 @@ final class MockClock implements ClockInterface
         $timezone = $this->now->getTimezone();
 
         $this->now = (new \DateTimeImmutable($now, $timezone))->setTimezone($timezone);
+    }
+
+    public function modify(string $modifier): void
+    {
+        if (false === $modifiedNow = @$this->now->modify($modifier)) {
+            throw new \InvalidArgumentException(sprintf('Invalid modifier: "%s". Could not modify MockClock.', $modifier));
+        }
+
+        $this->now = $modifiedNow;
     }
 
     public function withTimeZone(\DateTimeZone|string $timezone): static

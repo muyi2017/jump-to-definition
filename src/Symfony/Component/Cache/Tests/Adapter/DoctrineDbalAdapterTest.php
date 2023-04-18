@@ -79,7 +79,7 @@ class DoctrineDbalAdapterTest extends AdapterTestCase
         $schema = new Schema();
 
         $adapter = new DoctrineDbalAdapter($connection);
-        $adapter->configureSchema($schema, $connection);
+        $adapter->configureSchema($schema, $connection, fn () => true);
         $this->assertTrue($schema->hasTable('cache_items'));
     }
 
@@ -89,7 +89,7 @@ class DoctrineDbalAdapterTest extends AdapterTestCase
         $schema = new Schema();
 
         $adapter = $this->createCachePool();
-        $adapter->configureSchema($schema, $otherConnection);
+        $adapter->configureSchema($schema, $otherConnection, fn () => false);
         $this->assertFalse($schema->hasTable('cache_items'));
     }
 
@@ -100,7 +100,7 @@ class DoctrineDbalAdapterTest extends AdapterTestCase
         $schema->createTable('cache_items');
 
         $adapter = new DoctrineDbalAdapter($connection);
-        $adapter->configureSchema($schema, $connection);
+        $adapter->configureSchema($schema, $connection, fn () => true);
         $table = $schema->getTable('cache_items');
         $this->assertEmpty($table->getColumns(), 'The table was not overwritten');
     }
@@ -124,7 +124,7 @@ class DoctrineDbalAdapterTest extends AdapterTestCase
         }
     }
 
-    public function provideDsn()
+    public static function provideDsn()
     {
         $dbFile = tempnam(sys_get_temp_dir(), 'sf_sqlite_cache');
         yield ['sqlite://localhost/'.$dbFile.'1', $dbFile.'1'];

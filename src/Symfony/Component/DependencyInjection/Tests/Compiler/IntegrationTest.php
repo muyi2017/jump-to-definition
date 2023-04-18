@@ -47,6 +47,7 @@ use Symfony\Component\DependencyInjection\Tests\Fixtures\LocatorConsumerWithDefa
 use Symfony\Component\DependencyInjection\Tests\Fixtures\LocatorConsumerWithDefaultIndexMethodAndWithDefaultPriorityMethod;
 use Symfony\Component\DependencyInjection\Tests\Fixtures\LocatorConsumerWithDefaultPriorityMethod;
 use Symfony\Component\DependencyInjection\Tests\Fixtures\LocatorConsumerWithoutIndex;
+use Symfony\Component\DependencyInjection\Tests\Fixtures\StaticMethodTag;
 use Symfony\Component\DependencyInjection\Tests\Fixtures\TaggedConsumerWithExclude;
 use Symfony\Component\DependencyInjection\Tests\Fixtures\TaggedService1;
 use Symfony\Component\DependencyInjection\Tests\Fixtures\TaggedService2;
@@ -268,7 +269,7 @@ class IntegrationTest extends TestCase
         $this->assertEquals($expectedService, $actualService);
     }
 
-    public function getYamlCompileTests()
+    public static function getYamlCompileTests()
     {
         $container = new ContainerBuilder();
         $container->registerForAutoconfiguration(IntegrationTestStub::class);
@@ -849,7 +850,6 @@ class IntegrationTest extends TestCase
                 $definition->addTag('app.custom_tag', get_object_vars($attribute) + ['class' => $reflector->getName()]);
             }
         );
-        $container->registerForAutoconfiguration(TaggedService1::class)->addTag('app.custom_tag');
 
         $container->register('one', TaggedService1::class)
             ->setPublic(true)
@@ -1024,6 +1024,28 @@ class IntegrationTest extends TestCase
         self::assertSame('bar', $service->foo);
         self::assertSame(6, $service->sum);
         self::assertTrue($service->hasBeenConfigured);
+    }
+
+    public function testAttributeAutoconfigurationOnStaticMethod()
+    {
+        $container = new ContainerBuilder();
+        $container->registerAttributeForAutoconfiguration(
+            CustomMethodAttribute::class,
+            static function (ChildDefinition $d, CustomMethodAttribute $a, \ReflectionMethod $_r) {
+                $d->addTag('custom_tag', ['attribute' => $a->someAttribute]);
+            }
+        );
+
+        $container->register('service', StaticMethodTag::class)
+            ->setPublic(true)
+            ->setAutoconfigured(true);
+
+        $container->compile();
+
+        $definition = $container->getDefinition('service');
+        self::assertEquals([['attribute' => 'static']], $definition->getTag('custom_tag'));
+
+        $container->get('service');
     }
 
     public function testTaggedIteratorAndLocatorWithExclude()

@@ -36,7 +36,7 @@ class RequestMatcherTest extends TestCase
         $this->assertSame($isMatch, $matcher->matches($request));
     }
 
-    public function getMethodData()
+    public static function getMethodData()
     {
         return [
             ['get', 'get', true],
@@ -97,7 +97,7 @@ class RequestMatcherTest extends TestCase
         $this->assertTrue($matcher->matches($request));
     }
 
-    public function getHostData()
+    public static function getHostData()
     {
         return [
             ['.*\.example\.com', true],
@@ -173,9 +173,7 @@ class RequestMatcherTest extends TestCase
         $matcher = new RequestMatcher();
 
         $request = Request::create('/admin/foo');
-        $request->attributes->set('_controller', function () {
-            return new Response('foo');
-        });
+        $request->attributes->set('_controller', fn () => new Response('foo'));
 
         $matcher->matchAttribute('_controller', 'babar');
         $this->assertFalse($matcher->matches($request));

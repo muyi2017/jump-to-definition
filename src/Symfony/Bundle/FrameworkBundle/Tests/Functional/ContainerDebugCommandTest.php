@@ -15,6 +15,7 @@ use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\Tests\Fixtures\BackslashClass;
 use Symfony\Component\Console\Tester\ApplicationTester;
 use Symfony\Component\Console\Tester\CommandCompletionTester;
+use Symfony\Component\HttpKernel\HttpKernelInterface;
 
 /**
  * @group functional
@@ -39,6 +40,19 @@ class ContainerDebugCommandTest extends AbstractWebTestCase
     public function testNoDebug()
     {
         static::bootKernel(['test_case' => 'ContainerDebug', 'root_config' => 'config.yml', 'debug' => false]);
+
+        $application = new Application(static::$kernel);
+        $application->setAutoExit(false);
+
+        $tester = new ApplicationTester($application);
+        $tester->run(['command' => 'debug:container']);
+
+        $this->assertStringContainsString('public', $tester->getDisplay());
+    }
+
+    public function testNoDumpedXML()
+    {
+        static::bootKernel(['test_case' => 'ContainerDebug', 'root_config' => 'config.yml', 'debug' => true, 'debug.container.dump' => false]);
 
         $application = new Application(static::$kernel);
         $application->setAutoExit(false);
@@ -241,7 +255,7 @@ TXT
         $this->assertStringContainsString('[WARNING] The deprecation file does not exist', $tester->getDisplay());
     }
 
-    public function provideIgnoreBackslashWhenFindingService()
+    public static function provideIgnoreBackslashWhenFindingService()
     {
         return [
             [BackslashClass::class],
@@ -269,11 +283,11 @@ TXT
         }
     }
 
-    public function provideCompletionSuggestions()
+    public static function provideCompletionSuggestions()
     {
         $serviceId = 'console.command.container_debug';
         $hiddenServiceId = '.console.command.container_debug.lazy';
-        $interfaceServiceId = 'Symfony\Component\HttpKernel\HttpKernelInterface';
+        $interfaceServiceId = HttpKernelInterface::class;
 
         yield 'name' => [
             [''],

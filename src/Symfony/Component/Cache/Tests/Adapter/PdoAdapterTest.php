@@ -48,9 +48,7 @@ class PdoAdapterTest extends AdapterTestCase
     {
         $pdo = new \PDO('sqlite:'.self::$dbFile);
 
-        $getCacheItemCount = function () use ($pdo) {
-            return (int) $pdo->query('SELECT COUNT(*) FROM cache_items')->fetch(\PDO::FETCH_COLUMN);
-        };
+        $getCacheItemCount = fn () => (int) $pdo->query('SELECT COUNT(*) FROM cache_items')->fetch(\PDO::FETCH_COLUMN);
 
         $this->assertSame(0, $getCacheItemCount());
 
@@ -89,7 +87,7 @@ class PdoAdapterTest extends AdapterTestCase
         }
     }
 
-    public function provideDsn()
+    public static function provideDsn()
     {
         $dbFile = tempnam(sys_get_temp_dir(), 'sf_sqlite_cache');
         yield ['sqlite:'.$dbFile.'2', $dbFile.'2'];

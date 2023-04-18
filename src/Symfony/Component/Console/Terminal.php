@@ -133,7 +133,7 @@ class Terminal
         return self::$stty = 0 === $exitcode;
     }
 
-    private static function initDimensions()
+    private static function initDimensions(): void
     {
         if ('\\' === \DIRECTORY_SEPARATOR) {
             if (preg_match('/^(\d+)x(\d+)(?: \((\d+)x(\d+)\))?$/', trim(getenv('ANSICON')), $matches)) {
@@ -166,7 +166,7 @@ class Terminal
     /**
      * Initializes dimensions using the output of an stty columns line.
      */
-    private static function initDimensionsUsingStty()
+    private static function initDimensionsUsingStty(): void
     {
         if ($sttyString = self::getSttyColumns()) {
             if (preg_match('/rows.(\d+);.columns.(\d+);/is', $sttyString, $matches)) {
@@ -216,6 +216,8 @@ class Terminal
             2 => ['pipe', 'w'],
         ];
 
+        $cp = \function_exists('sapi_windows_cp_set') ? sapi_windows_cp_get() : 0;
+
         $process = proc_open($command, $descriptorspec, $pipes, null, null, ['suppress_errors' => true]);
         if (!\is_resource($process)) {
             return null;
@@ -225,6 +227,10 @@ class Terminal
         fclose($pipes[1]);
         fclose($pipes[2]);
         proc_close($process);
+
+        if ($cp) {
+            sapi_windows_cp_set($cp);
+        }
 
         return $info;
     }

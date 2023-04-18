@@ -187,7 +187,7 @@ class EntityValueResolverTest extends TestCase
         $this->assertSame([null], $resolver->resolve($request, $argument));
     }
 
-    public function idsProvider(): iterable
+    public static function idsProvider(): iterable
     {
         yield [1];
         yield [0];
@@ -371,6 +371,20 @@ class EntityValueResolverTest extends TestCase
         $this->expectException(\LogicException::class);
         $this->expectExceptionMessage('syntax error message around position 10');
         $resolver->resolve($request, $argument);
+    }
+
+    public function testAlreadyResolved()
+    {
+        $manager = $this->getMockBuilder(ObjectManager::class)->getMock();
+        $registry = $this->createRegistry($manager);
+        $resolver = new EntityValueResolver($registry);
+
+        $request = new Request();
+        $request->attributes->set('arg', new \stdClass());
+
+        $argument = $this->createArgument('stdClass', name: 'arg');
+
+        $this->assertSame([], $resolver->resolve($request, $argument));
     }
 
     private function createArgument(string $class = null, MapEntity $entity = null, string $name = 'arg', bool $isNullable = false): ArgumentMetadata

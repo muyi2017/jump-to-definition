@@ -35,12 +35,12 @@ use Symfony\Component\Form\ChoiceList\View\ChoiceView;
 use Symfony\Component\Form\Exception\RuntimeException;
 use Symfony\Component\Form\Exception\UnexpectedTypeException;
 use Symfony\Component\Form\Forms;
-use Symfony\Component\Form\Tests\Extension\Core\Type\BaseTypeTest;
+use Symfony\Component\Form\Tests\Extension\Core\Type\BaseTypeTestCase;
 use Symfony\Component\Form\Tests\Extension\Core\Type\FormTypeTest;
 use Symfony\Component\OptionsResolver\Exception\InvalidOptionsException;
 use Symfony\Component\OptionsResolver\Exception\MissingOptionsException;
 
-class EntityTypeTest extends BaseTypeTest
+class EntityTypeTest extends BaseTypeTestCase
 {
     public const TESTED_TYPE = 'Symfony\Bridge\Doctrine\Form\Type\EntityType';
 
@@ -158,7 +158,7 @@ class EntityTypeTest extends BaseTypeTest
         }
     }
 
-    public function choiceTranslationDomainProvider()
+    public static function choiceTranslationDomainProvider()
     {
         return [
             [false],
@@ -236,9 +236,7 @@ class EntityTypeTest extends BaseTypeTest
         $field = $this->factory->createNamed('name', static::TESTED_TYPE, null, [
             'em' => 'default',
             'class' => self::SINGLE_IDENT_CLASS,
-            'query_builder' => function () {
-                return new \stdClass();
-            },
+            'query_builder' => fn () => new \stdClass(),
         ]);
 
         $field->submit('2');
@@ -1078,10 +1076,8 @@ class EntityTypeTest extends BaseTypeTest
         $field = $this->factory->createNamed('name', static::TESTED_TYPE, null, [
             'em' => 'default',
             'class' => self::SINGLE_IDENT_CLASS,
-            'query_builder' => function (EntityRepository $repository) {
-                return $repository->createQueryBuilder('e')
-                    ->where('e.id IN (1, 2)');
-            },
+            'query_builder' => fn (EntityRepository $repository) => $repository->createQueryBuilder('e')
+                ->where('e.id IN (1, 2)'),
             'choice_label' => 'name',
         ]);
 
@@ -1102,10 +1098,8 @@ class EntityTypeTest extends BaseTypeTest
         $field = $this->factory->createNamed('name', static::TESTED_TYPE, null, [
             'em' => 'default',
             'class' => self::COMPOSITE_IDENT_CLASS,
-            'query_builder' => function (EntityRepository $repository) {
-                return $repository->createQueryBuilder('e')
-                    ->where('e.id1 IN (10, 50)');
-            },
+            'query_builder' => fn (EntityRepository $repository) => $repository->createQueryBuilder('e')
+                ->where('e.id1 IN (10, 50)'),
             'choice_label' => 'name',
         ]);
 
@@ -1220,17 +1214,13 @@ class EntityTypeTest extends BaseTypeTest
         $formBuilder->add('property2', static::TESTED_TYPE, [
             'em' => 'default',
             'class' => self::SINGLE_IDENT_CLASS,
-            'query_builder' => function (EntityRepository $repo) {
-                return $repo->createQueryBuilder('e')->where('e.id IN (1, 2)');
-            },
+            'query_builder' => fn (EntityRepository $repo) => $repo->createQueryBuilder('e')->where('e.id IN (1, 2)'),
         ]);
 
         $formBuilder->add('property3', static::TESTED_TYPE, [
             'em' => 'default',
             'class' => self::SINGLE_IDENT_CLASS,
-            'query_builder' => function (EntityRepository $repo) {
-                return $repo->createQueryBuilder('e')->where('e.id IN (1, 2)');
-            },
+            'query_builder' => fn (EntityRepository $repo) => $repo->createQueryBuilder('e')->where('e.id IN (1, 2)'),
         ]);
 
         $form = $formBuilder->getForm();
@@ -1280,17 +1270,13 @@ class EntityTypeTest extends BaseTypeTest
         $formBuilder->add('property2', static::TESTED_TYPE, [
             'em' => 'default',
             'class' => self::SINGLE_IDENT_CLASS,
-            'query_builder' => function (EntityRepository $repo) {
-                return $repo->createQueryBuilder('e')->where('e.id = :id')->setParameter('id', 1);
-            },
+            'query_builder' => fn (EntityRepository $repo) => $repo->createQueryBuilder('e')->where('e.id = :id')->setParameter('id', 1),
         ]);
 
         $formBuilder->add('property3', static::TESTED_TYPE, [
             'em' => 'default',
             'class' => self::SINGLE_IDENT_CLASS,
-            'query_builder' => function (EntityRepository $repo) {
-                return $repo->createQueryBuilder('e')->where('e.id = :id')->setParameter('id', 1);
-            },
+            'query_builder' => fn (EntityRepository $repo) => $repo->createQueryBuilder('e')->where('e.id = :id')->setParameter('id', 1),
         ]);
 
         $form = $formBuilder->getForm();
@@ -1791,9 +1777,7 @@ class EntityTypeTest extends BaseTypeTest
             ->add('entity_two', self::TESTED_TYPE, [
                 'em' => 'default',
                 'class' => self::SINGLE_IDENT_CLASS,
-                'choice_value' => function ($choice) {
-                    return $choice ? $choice->name : '';
-                },
+                'choice_value' => fn ($choice) => $choice ? $choice->name : '',
             ])
             ->createView()
         ;

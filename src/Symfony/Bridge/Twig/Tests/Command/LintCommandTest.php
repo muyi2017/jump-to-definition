@@ -146,7 +146,7 @@ class LintCommandTest extends TestCase
         $this->assertSame($expectedSuggestions, $tester->complete($input));
     }
 
-    public function provideCompletionSuggestions()
+    public static function provideCompletionSuggestions()
     {
         yield 'option' => [['--format', ''], ['txt', 'json', 'github']];
     }
@@ -159,9 +159,7 @@ class LintCommandTest extends TestCase
     private function createCommand(): Command
     {
         $environment = new Environment(new FilesystemLoader(\dirname(__DIR__).'/Fixtures/templates/'));
-        $environment->addFilter(new TwigFilter('deprecated_filter', function ($v) {
-            return $v;
-        }, ['deprecated' => true]));
+        $environment->addFilter(new TwigFilter('deprecated_filter', fn ($v) => $v, ['deprecated' => true]));
 
         $command = new LintCommand($environment);
 

@@ -604,6 +604,8 @@ class Process implements \IteratorAggregate
      *
      * @param int $flags A bit field of Process::ITER_* flags
      *
+     * @return \Generator<string, string>
+     *
      * @throws LogicException in case the output has been disabled
      * @throws LogicException In case the process is not started
      */
@@ -872,7 +874,7 @@ class Process implements \IteratorAggregate
      * Stops the process.
      *
      * @param int|float $timeout The timeout in seconds
-     * @param int       $signal  A POSIX signal to send in case the process has not stop at timeout, default is SIGKILL (9)
+     * @param int|null  $signal  A POSIX signal to send in case the process has not stop at timeout, default is SIGKILL (9)
      *
      * @return int|null The exit-code of the process or null if it's not running
      */
@@ -1253,9 +1255,7 @@ class Process implements \IteratorAggregate
     protected function buildCallback(callable $callback = null): \Closure
     {
         if ($this->outputDisabled) {
-            return function ($type, $data) use ($callback): bool {
-                return null !== $callback && $callback($type, $data);
-            };
+            return fn ($type, $data): bool => null !== $callback && $callback($type, $data);
         }
 
         $out = self::OUT;
@@ -1480,8 +1480,6 @@ class Process implements \IteratorAggregate
     private function prepareWindowsCommandLine(string $cmd, array &$env): string
     {
         $uid = uniqid('', true);
-        $varCount = 0;
-        $varCache = [];
         $cmd = preg_replace_callback(
             '/"(?:(
                 [^"%!^]*+
@@ -1490,7 +1488,9 @@ class Process implements \IteratorAggregate
                     [^"%!^]*+
                 )++
             ) | [^"]*+ )"/x',
-            function ($m) use (&$env, &$varCache, &$varCount, $uid) {
+            function ($m) use (&$env, $uid) {
+                static $varCount = 0;
+                static $varCache = [];
                 if (!isset($m[1])) {
                     return $m[0];
                 }
@@ -1569,7 +1569,7 @@ class Process implements \IteratorAggregate
         return '"'.str_replace(['"', '^', '%', '!', "\n"], ['""', '"^^"', '"^%"', '"^!"', '!LF!'], $argument).'"';
     }
 
-    private function replacePlaceholders(string $commandline, array $env)
+    private function replacePlaceholders(string $commandline, array $env): string
     {
         return preg_replace_callback('/"\$\{:([_a-zA-Z]++[_a-zA-Z0-9]*+)\}"/', function ($matches) use ($commandline, $env) {
             if (!isset($env[$matches[1]]) || false === $env[$matches[1]]) {

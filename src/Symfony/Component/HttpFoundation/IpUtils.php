@@ -18,6 +18,21 @@ namespace Symfony\Component\HttpFoundation;
  */
 class IpUtils
 {
+    public const PRIVATE_SUBNETS = [
+        '127.0.0.0/8',    // RFC1700 (Loopback)
+        '10.0.0.0/8',     // RFC1918
+        '192.168.0.0/16', // RFC1918
+        '172.16.0.0/12',  // RFC1918
+        '169.254.0.0/16', // RFC3927
+        '0.0.0.0/8',      // RFC5735
+        '240.0.0.0/4',    // RFC1112
+        '::1/128',        // Loopback
+        'fc00::/7',       // Unique Local Address
+        'fe80::/10',      // Link Local Address
+        '::ffff:0:0/96',  // IPv4 translations
+        '::/128',         // Unspecified address
+    ];
+
     private static array $checkedIps = [];
 
     /**
@@ -59,7 +74,7 @@ class IpUtils
      */
     public static function checkIp4(string $requestIp, string $ip): bool
     {
-        $cacheKey = $requestIp.'-'.$ip;
+        $cacheKey = $requestIp.'-'.$ip.'-v4';
         if (isset(self::$checkedIps[$cacheKey])) {
             return self::$checkedIps[$cacheKey];
         }
@@ -72,7 +87,7 @@ class IpUtils
             [$address, $netmask] = explode('/', $ip, 2);
 
             if ('0' === $netmask) {
-                return self::$checkedIps[$cacheKey] = filter_var($address, \FILTER_VALIDATE_IP, \FILTER_FLAG_IPV4);
+                return self::$checkedIps[$cacheKey] = false !== filter_var($address, \FILTER_VALIDATE_IP, \FILTER_FLAG_IPV4);
             }
 
             if ($netmask < 0 || $netmask > 32) {
@@ -104,7 +119,7 @@ class IpUtils
      */
     public static function checkIp6(string $requestIp, string $ip): bool
     {
-        $cacheKey = $requestIp.'-'.$ip;
+        $cacheKey = $requestIp.'-'.$ip.'-v6';
         if (isset(self::$checkedIps[$cacheKey])) {
             return self::$checkedIps[$cacheKey];
         }
@@ -114,16 +129,16 @@ class IpUtils
         }
 
         // Check to see if we were given a IP4 $requestIp or $ip by mistake
-        if (str_contains($requestIp, '.') || str_contains($ip, '.')) {
-            return self::$checkedIps[$cacheKey] = false;
-        }
-
         if (!filter_var($requestIp, \FILTER_VALIDATE_IP, \FILTER_FLAG_IPV6)) {
             return self::$checkedIps[$cacheKey] = false;
         }
 
         if (str_contains($ip, '/')) {
             [$address, $netmask] = explode('/', $ip, 2);
+
+            if (!filter_var($address, \FILTER_VALIDATE_IP, \FILTER_FLAG_IPV6)) {
+                return self::$checkedIps[$cacheKey] = false;
+            }
 
             if ('0' === $netmask) {
                 return (bool) unpack('n*', @inet_pton($address));
@@ -133,6 +148,10 @@ class IpUtils
                 return self::$checkedIps[$cacheKey] = false;
             }
         } else {
+            if (!filter_var($ip, \FILTER_VALIDATE_IP, \FILTER_FLAG_IPV6)) {
+                return self::$checkedIps[$cacheKey] = false;
+            }
+
             $address = $ip;
             $netmask = 128;
         }
@@ -186,5 +205,13 @@ class IpUtils
         }
 
         return $ip;
+    }
+
+    /**
+     * Checks if an IPv4 or IPv6 address is contained in the list of private IP subnets.
+     */
+    public static function isPrivateIp(string $requestIp): bool
+    {
+        return self::checkIp($requestIp, self::PRIVATE_SUBNETS);
     }
 }

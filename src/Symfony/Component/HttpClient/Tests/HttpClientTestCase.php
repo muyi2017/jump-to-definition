@@ -321,10 +321,6 @@ abstract class HttpClientTestCase extends BaseHttpClientTestCase
             throw new SkippedTestSuiteError('Testing with the "vulcain" is not supported on Windows.');
         }
 
-        if (['application/json'] !== $client->request('GET', 'http://127.0.0.1:8057/json')->getHeaders()['content-type']) {
-            throw new SkippedTestSuiteError('symfony/http-client-contracts >= 2.0.1 required');
-        }
-
         $process = new Process(['vulcain'], null, [
             'DEBUG' => 1,
             'UPSTREAM' => 'http://127.0.0.1:8057',
@@ -483,7 +479,7 @@ abstract class HttpClientTestCase extends BaseHttpClientTestCase
         }
     }
 
-    public function getRedirectWithAuthTests()
+    public static function getRedirectWithAuthTests()
     {
         return [
             'same host and port' => ['url' => 'http://localhost:8057/302', 'redirectWithAuth' => true],

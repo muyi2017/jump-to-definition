@@ -27,7 +27,7 @@ class ConstraintValidatorTest extends TestCase
         $this->assertSame($expected, (new TestFormatValueConstraintValidator())->formatValueProxy($value, $format));
     }
 
-    public function formatValueProvider()
+    public static function formatValueProvider()
     {
         $defaultTimezone = date_default_timezone_get();
         date_default_timezone_set('Europe/Moscow'); // GMT+3
@@ -56,7 +56,7 @@ class ConstraintValidatorTest extends TestCase
 
 final class TestFormatValueConstraintValidator extends ConstraintValidator
 {
-    public function validate($value, Constraint $constraint)
+    public function validate($value, Constraint $constraint): void
     {
     }
 

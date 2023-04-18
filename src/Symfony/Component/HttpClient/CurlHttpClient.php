@@ -89,10 +89,7 @@ final class CurlHttpClient implements HttpClientInterface, LoggerAwareInterface,
         $authority = $url['authority'];
         $host = parse_url($authority, \PHP_URL_HOST);
         $port = parse_url($authority, \PHP_URL_PORT) ?: ('http:' === $scheme ? 80 : 443);
-        $proxy = $options['proxy']
-            ?? ('https:' === $url['scheme'] ? $_SERVER['https_proxy'] ?? $_SERVER['HTTPS_PROXY'] ?? null : null)
-            // Ignore HTTP_PROXY except on the CLI to work around httpoxy set of vulnerabilities
-            ?? $_SERVER['http_proxy'] ?? (\in_array(\PHP_SAPI, ['cli', 'phpdbg'], true) ? $_SERVER['HTTP_PROXY'] ?? null : null) ?? $_SERVER['all_proxy'] ?? $_SERVER['ALL_PROXY'] ?? null;
+        $proxy = self::getProxyUrl($options['proxy'], $url);
         $url = implode('', $url);
 
         if (!isset($options['normalized_headers']['user-agent'])) {
@@ -197,8 +194,14 @@ final class CurlHttpClient implements HttpClientInterface, LoggerAwareInterface,
         if (\extension_loaded('zlib') && !isset($options['normalized_headers']['accept-encoding'])) {
             $options['headers'][] = 'Accept-Encoding: gzip'; // Expose only one encoding, some servers mess up when more are provided
         }
+        $body = $options['body'];
 
-        foreach ($options['headers'] as $header) {
+        foreach ($options['headers'] as $i => $header) {
+            if (\is_string($body) && '' !== $body && 0 === stripos($header, 'Content-Length: ')) {
+                // Let curl handle Content-Length headers
+                unset($options['headers'][$i]);
+                continue;
+            }
             if (':' === $header[-2] && \strlen($header) - 2 === strpos($header, ': ')) {
                 // curl requires a special syntax to send empty headers
                 $curlopts[\CURLOPT_HTTPHEADER][] = substr_replace($header, ';', -2);
@@ -214,27 +217,29 @@ final class CurlHttpClient implements HttpClientInterface, LoggerAwareInterface,
             }
         }
 
-        if (!\is_string($body = $options['body'])) {
+        if (!\is_string($body)) {
             if (\is_resource($body)) {
                 $curlopts[\CURLOPT_INFILE] = $body;
             } else {
-                $eof = false;
-                $buffer = '';
-                $curlopts[\CURLOPT_READFUNCTION] = static function ($ch, $fd, $length) use ($body, &$buffer, &$eof) {
+                $curlopts[\CURLOPT_READFUNCTION] = static function ($ch, $fd, $length) use ($body) {
+                    static $eof = false;
+                    static $buffer = '';
+
                     return self::readRequestBody($length, $body, $buffer, $eof);
                 };
             }
 
             if (isset($options['normalized_headers']['content-length'][0])) {
-                $curlopts[\CURLOPT_INFILESIZE] = substr($options['normalized_headers']['content-length'][0], \strlen('Content-Length: '));
-            } elseif (!isset($options['normalized_headers']['transfer-encoding'])) {
-                $curlopts[\CURLOPT_HTTPHEADER][] = 'Transfer-Encoding: chunked'; // Enable chunked request bodies
+                $curlopts[\CURLOPT_INFILESIZE] = (int) substr($options['normalized_headers']['content-length'][0], \strlen('Content-Length: '));
+            }
+            if (!isset($options['normalized_headers']['transfer-encoding'])) {
+                $curlopts[\CURLOPT_HTTPHEADER][] = 'Transfer-Encoding:'.(isset($curlopts[\CURLOPT_INFILESIZE]) ? '' : ' chunked');
             }
 
             if ('POST' !== $method) {
                 $curlopts[\CURLOPT_UPLOAD] = true;
 
-                if (!isset($options['normalized_headers']['content-type'])) {
+                if (!isset($options['normalized_headers']['content-type']) && 0 !== ($curlopts[\CURLOPT_INFILESIZE] ?? null)) {
                     $curlopts[\CURLOPT_HTTPHEADER][] = 'Content-Type: application/x-www-form-urlencoded';
                 }
             }
@@ -317,7 +322,7 @@ final class CurlHttpClient implements HttpClientInterface, LoggerAwareInterface,
         return new ResponseStream(CurlResponse::stream($responses, $timeout));
     }
 
-    public function reset()
+    public function reset(): void
     {
         $this->multi->reset();
     }
@@ -382,18 +387,14 @@ final class CurlHttpClient implements HttpClientInterface, LoggerAwareInterface,
         if (0 < $options['max_redirects']) {
             $redirectHeaders['host'] = $host;
             $redirectHeaders['port'] = $port;
-            $redirectHeaders['with_auth'] = $redirectHeaders['no_auth'] = array_filter($options['headers'], static function ($h) {
-                return 0 !== stripos($h, 'Host:');
-            });
+            $redirectHeaders['with_auth'] = $redirectHeaders['no_auth'] = array_filter($options['headers'], static fn ($h) => 0 !== stripos($h, 'Host:'));
 
             if (isset($options['normalized_headers']['authorization'][0]) || isset($options['normalized_headers']['cookie'][0])) {
-                $redirectHeaders['no_auth'] = array_filter($options['headers'], static function ($h) {
-                    return 0 !== stripos($h, 'Authorization:') && 0 !== stripos($h, 'Cookie:');
-                });
+                $redirectHeaders['no_auth'] = array_filter($options['headers'], static fn ($h) => 0 !== stripos($h, 'Authorization:') && 0 !== stripos($h, 'Cookie:'));
             }
         }
 
-        return static function ($ch, string $location, bool $noContent) use (&$redirectHeaders) {
+        return static function ($ch, string $location, bool $noContent) use (&$redirectHeaders, $options) {
             try {
                 $location = self::parseUrl($location);
             } catch (InvalidArgumentException) {
@@ -401,9 +402,7 @@ final class CurlHttpClient implements HttpClientInterface, LoggerAwareInterface,
             }
 
             if ($noContent && $redirectHeaders) {
-                $filterContentHeaders = static function ($h) {
-                    return 0 !== stripos($h, 'Content-Length:') && 0 !== stripos($h, 'Content-Type:') && 0 !== stripos($h, 'Transfer-Encoding:');
-                };
+                $filterContentHeaders = static fn ($h) => 0 !== stripos($h, 'Content-Length:') && 0 !== stripos($h, 'Content-Type:') && 0 !== stripos($h, 'Transfer-Encoding:');
                 $redirectHeaders['no_auth'] = array_filter($redirectHeaders['no_auth'], $filterContentHeaders);
                 $redirectHeaders['with_auth'] = array_filter($redirectHeaders['with_auth'], $filterContentHeaders);
             }
@@ -419,11 +418,7 @@ final class CurlHttpClient implements HttpClientInterface, LoggerAwareInterface,
             $url = self::parseUrl(curl_getinfo($ch, \CURLINFO_EFFECTIVE_URL));
             $url = self::resolveUrl($location, $url);
 
-            curl_setopt($ch, \CURLOPT_PROXY, $options['proxy']
-                ?? ('https:' === $url['scheme'] ? $_SERVER['https_proxy'] ?? $_SERVER['HTTPS_PROXY'] ?? null : null)
-                // Ignore HTTP_PROXY except on the CLI to work around httpoxy set of vulnerabilities
-                ?? $_SERVER['http_proxy'] ?? (\in_array(\PHP_SAPI, ['cli', 'phpdbg'], true) ? $_SERVER['HTTP_PROXY'] ?? null : null) ?? $_SERVER['all_proxy'] ?? $_SERVER['ALL_PROXY'] ?? null
-            );
+            curl_setopt($ch, \CURLOPT_PROXY, self::getProxyUrl($options['proxy'], $url));
 
             return implode('', $url);
         };
@@ -431,9 +426,7 @@ final class CurlHttpClient implements HttpClientInterface, LoggerAwareInterface,
 
     private function findConstantName(int $opt): ?string
     {
-        $constants = array_filter(get_defined_constants(), static function ($v, $k) use ($opt) {
-            return $v === $opt && 'C' === $k[0] && (str_starts_with($k, 'CURLOPT_') || str_starts_with($k, 'CURLINFO_'));
-        }, \ARRAY_FILTER_USE_BOTH);
+        $constants = array_filter(get_defined_constants(), static fn ($v, $k) => $v === $opt && 'C' === $k[0] && (str_starts_with($k, 'CURLOPT_') || str_starts_with($k, 'CURLINFO_')), \ARRAY_FILTER_USE_BOTH);
 
         return key($constants);
     }

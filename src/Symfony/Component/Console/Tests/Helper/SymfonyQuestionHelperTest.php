@@ -23,7 +23,7 @@ use Symfony\Component\Console\Question\Question;
 /**
  * @group tty
  */
-class SymfonyQuestionHelperTest extends AbstractQuestionHelperTest
+class SymfonyQuestionHelperTest extends AbstractQuestionHelperTestCase
 {
     public function testAskChoice()
     {
@@ -101,7 +101,7 @@ class SymfonyQuestionHelperTest extends AbstractQuestionHelperTest
     {
         $questionHelper = new SymfonyQuestionHelper();
         $question = new Question('What is your favorite superhero?');
-        $question->setValidator(function ($value) { return $value; });
+        $question->setValidator(fn ($value) => $value);
         $input = $this->createStreamableInputInterfaceMock($this->getInputStream("\n"));
         $this->assertNull($questionHelper->ask($input, $this->createOutputInterface(), $question));
     }

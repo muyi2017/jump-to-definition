@@ -45,6 +45,7 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Core\User\InMemoryUser;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 use Symfony\Component\Serializer\SerializerInterface;
+use Symfony\Component\WebLink\HttpHeaderSerializer;
 use Symfony\Component\WebLink\Link;
 use Twig\Environment;
 
@@ -72,6 +73,7 @@ class AbstractControllerTest extends TestCase
             'parameter_bag' => '?Symfony\\Component\\DependencyInjection\\ParameterBag\\ContainerBagInterface',
             'security.token_storage' => '?Symfony\\Component\\Security\\Core\\Authentication\\Token\\Storage\\TokenStorageInterface',
             'security.csrf.token_manager' => '?Symfony\\Component\\Security\\Csrf\\CsrfTokenManagerInterface',
+            'web_link.http_header_serializer' => '?Symfony\\Component\\WebLink\\HttpHeaderSerializer',
         ];
 
         $this->assertEquals($expectedServices, $subscribed, 'Subscribed core services in AbstractController have changed');
@@ -110,9 +112,7 @@ class AbstractControllerTest extends TestCase
         $requestStack->push($request);
 
         $kernel = $this->createMock(HttpKernelInterface::class);
-        $kernel->expects($this->once())->method('handle')->willReturnCallback(function (Request $request) {
-            return new Response($request->getRequestFormat().'--'.$request->getLocale());
-        });
+        $kernel->expects($this->once())->method('handle')->willReturnCallback(fn (Request $request) => new Response($request->getRequestFormat().'--'.$request->getLocale()));
 
         $container = new Container();
         $container->set('request_stack', $requestStack);
@@ -362,6 +362,40 @@ class AbstractControllerTest extends TestCase
         $controller->setContainer($container);
 
         $controller->denyAccessUnlessGranted('foo');
+    }
+
+    /**
+     * @dataProvider provideDenyAccessUnlessGrantedSetsAttributesAsArray
+     */
+    public function testdenyAccessUnlessGrantedSetsAttributesAsArray($attribute, $exceptionAttributes)
+    {
+        $authorizationChecker = $this->createMock(AuthorizationCheckerInterface::class);
+        $authorizationChecker->method('isGranted')->willReturn(false);
+
+        $container = new Container();
+        $container->set('security.authorization_checker', $authorizationChecker);
+
+        $controller = $this->createController();
+        $controller->setContainer($container);
+
+        try {
+            $controller->denyAccessUnlessGranted($attribute);
+            $this->fail('there was no exception to check');
+        } catch (AccessDeniedException $e) {
+            $this->assertSame($exceptionAttributes, $e->getAttributes());
+        }
+    }
+
+    public static function provideDenyAccessUnlessGrantedSetsAttributesAsArray()
+    {
+        $obj = new \stdClass();
+        $obj->foo = 'bar';
+
+        return [
+            'string attribute' => ['foo', ['foo']],
+            'array attribute' => [[1, 3, 3, 7], [[1, 3, 3, 7]]],
+            'object attribute' => [$obj, [$obj]],
+        ];
     }
 
     public function testRenderViewTwig()
@@ -644,5 +678,21 @@ class AbstractControllerTest extends TestCase
         $links = $request->attributes->get('_links')->getLinks();
         $this->assertContains($link1, $links);
         $this->assertContains($link2, $links);
+    }
+
+    public function testSendEarlyHints()
+    {
+        $container = new Container();
+        $container->set('web_link.http_header_serializer', new HttpHeaderSerializer());
+
+        $controller = $this->createController();
+        $controller->setContainer($container);
+
+        $response = $controller->sendEarlyHints([
+            (new Link(href: '/style.css'))->withAttribute('as', 'stylesheet'),
+            (new Link(href: '/script.js'))->withAttribute('as', 'script'),
+        ]);
+
+        $this->assertSame('</style.css>; rel="preload"; as="stylesheet",</script.js>; rel="preload"; as="script"', $response->headers->get('Link'));
     }
 }

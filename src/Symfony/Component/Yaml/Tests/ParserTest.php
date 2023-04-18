@@ -12,6 +12,7 @@
 namespace Symfony\Component\Yaml\Tests;
 
 use PHPUnit\Framework\TestCase;
+use Symfony\Bridge\PhpUnit\ExpectDeprecationTrait;
 use Symfony\Component\Yaml\Exception\ParseException;
 use Symfony\Component\Yaml\Parser;
 use Symfony\Component\Yaml\Tag\TaggedValue;
@@ -19,8 +20,9 @@ use Symfony\Component\Yaml\Yaml;
 
 class ParserTest extends TestCase
 {
-    /** @var Parser */
-    protected $parser;
+    use ExpectDeprecationTrait;
+
+    private ?Parser $parser;
 
     protected function setUp(): void
     {
@@ -54,8 +56,7 @@ class ParserTest extends TestCase
     {
         $yml = '!number 5';
         $data = $this->parser->parse($yml, Yaml::PARSE_CUSTOM_TAGS);
-        // @todo Preserve the number, don't turn into string.
-        $expected = new TaggedValue('number', '5');
+        $expected = new TaggedValue('number', 5);
         $this->assertSameData($expected, $data);
     }
 
@@ -63,9 +64,8 @@ class ParserTest extends TestCase
     {
         $yml = '!tag null';
         $data = $this->parser->parse($yml, Yaml::PARSE_CUSTOM_TAGS);
-        // @todo Preserve literal null, don't turn into string.
-        $expected = new TaggedValue('tag', 'null');
-        $this->assertSameData($expected, $data);
+
+        $this->assertSameData(new TaggedValue('tag', null), $data);
     }
 
     public function testTaggedValueTopLevelString()
@@ -126,14 +126,14 @@ YAML;
         $this->assertEquals($expected, var_export($this->parser->parse($yaml), true), $comment);
     }
 
-    public function getDataFormSpecifications()
+    public static function getDataFormSpecifications()
     {
-        return $this->loadTestsFromFixtureFiles('index.yml');
+        return self::loadTestsFromFixtureFiles('index.yml');
     }
 
-    public function getNonStringMappingKeysData()
+    public static function getNonStringMappingKeysData()
     {
-        return $this->loadTestsFromFixtureFiles('nonStringKeys.yml');
+        return self::loadTestsFromFixtureFiles('nonStringKeys.yml');
     }
 
     /**
@@ -146,7 +146,7 @@ YAML;
         $this->parser->parse($given);
     }
 
-    public function invalidIndentation(): array
+    public static function invalidIndentation(): array
     {
         return [
             [
@@ -191,7 +191,7 @@ YAML;
         $this->assertSameData($expected, $actual);
     }
 
-    public function validTokenSeparators(): array
+    public static function validTokenSeparators(): array
     {
         return [
             [
@@ -224,7 +224,7 @@ EOF;
         $this->assertEquals('foo', $this->parser->parse($yaml));
     }
 
-    public function getBlockChompingTests()
+    public static function getBlockChompingTests()
     {
         $tests = [];
 
@@ -588,7 +588,7 @@ EOF;
         $this->assertSameData($expected, $this->parser->parse($yaml, $flags));
     }
 
-    public function getObjectForMapTests()
+    public static function getObjectForMapTests()
     {
         $tests = [];
 
@@ -835,7 +835,7 @@ EOT;
         $this->assertSame($expected, $this->parser->parse($yaml));
     }
 
-    public function getParseExceptionNotAffectedMultiLineStringLastResortParsing()
+    public static function getParseExceptionNotAffectedMultiLineStringLastResortParsing()
     {
         $tests = [];
 
@@ -977,7 +977,7 @@ EOD;
         Yaml::parse($input);
     }
 
-    public function getParseExceptionOnDuplicateData()
+    public static function getParseExceptionOnDuplicateData()
     {
         $tests = [];
 
@@ -1282,7 +1282,7 @@ EOT;
         $this->assertSame($expectedParserResult, $this->parser->parse($yaml));
     }
 
-    public function getCommentLikeStringInScalarBlockData()
+    public static function getCommentLikeStringInScalarBlockData()
     {
         $tests = [];
 
@@ -1467,7 +1467,7 @@ EOT
         $this->assertSame(['data' => 'Hello world'], $this->parser->parse($data));
     }
 
-    public function getBinaryData()
+    public static function getBinaryData()
     {
         return [
             'enclosed with double quotes' => ['data: !!binary "SGVsbG8gd29ybGQ="'],
@@ -1499,7 +1499,7 @@ EOT
         $this->parser->parse($data);
     }
 
-    public function getInvalidBinaryData()
+    public static function getInvalidBinaryData()
     {
         return [
             'length not a multiple of four' => ['data: !!binary "SGVsbG8d29ybGQ="', '/The normalized base64 encoded data \(data without whitespace characters\) length must be a multiple of four \(\d+ bytes given\)/'],
@@ -1541,6 +1541,15 @@ EOT
         ];
     }
 
+    public function testParseDateWithSubseconds()
+    {
+        $yaml = <<<'EOT'
+date: 2002-12-14T01:23:45.670000Z
+EOT;
+
+        $this->assertSameData(['date' => 1039829025.67], $this->parser->parse($yaml));
+    }
+
     public function testParseDateAsMappingValue()
     {
         $yaml = <<<'EOT'
@@ -1555,8 +1564,6 @@ EOT;
     }
 
     /**
-     * @param $lineNumber
-     * @param $yaml
      * @dataProvider parserThrowsExceptionWithCorrectLineNumberProvider
      */
     public function testParserThrowsExceptionWithCorrectLineNumber($lineNumber, $yaml)
@@ -1567,7 +1574,7 @@ EOT;
         $this->parser->parse($yaml);
     }
 
-    public function parserThrowsExceptionWithCorrectLineNumberProvider()
+    public static function parserThrowsExceptionWithCorrectLineNumberProvider()
     {
         return [
             [
@@ -1724,7 +1731,7 @@ EOT;
         $this->assertSame($expected, $this->parser->parse($yaml));
     }
 
-    public function escapedQuotationCharactersInQuotedStrings()
+    public static function escapedQuotationCharactersInQuotedStrings()
     {
         return [
             'single quoted string' => [
@@ -1782,7 +1789,7 @@ YAML
         $this->assertSame($expected, $this->parser->parse($yaml));
     }
 
-    public function multiLineDataProvider()
+    public static function multiLineDataProvider()
     {
         $tests = [];
 
@@ -1849,7 +1856,7 @@ EOF;
         $this->assertSame($expected, $this->parser->parse($yaml));
     }
 
-    public function inlineNotationSpanningMultipleLinesProvider(): array
+    public static function inlineNotationSpanningMultipleLinesProvider(): array
     {
         return [
             'mapping' => [
@@ -2238,7 +2245,7 @@ YAML;
         $this->assertSameData($expected, $this->parser->parse($yaml, Yaml::PARSE_CUSTOM_TAGS));
     }
 
-    public function taggedValuesProvider()
+    public static function taggedValuesProvider()
     {
         return [
             'scalars' => [
@@ -2310,7 +2317,7 @@ YAML
 
     public function testNonSpecificTagSupport()
     {
-        $this->assertSame('12', $this->parser->parse('! 12'));
+        $this->assertSame(12, $this->parser->parse('! 12'));
     }
 
     public function testCustomTagsDisabled()
@@ -2394,7 +2401,7 @@ INI;
         $this->parser->parse($ini);
     }
 
-    private function loadTestsFromFixtureFiles($testsFile)
+    private static function loadTestsFromFixtureFiles($testsFile)
     {
         $parser = new Parser();
 
@@ -2482,6 +2489,17 @@ YAML;
         $this->expectExceptionMessage('Missing value for tag "php/const:App\Kernel::SEMART_VERSION" at line 1 (near "!php/const:App\Kernel::SEMART_VERSION").');
 
         $this->parser->parse('!php/const:App\Kernel::SEMART_VERSION', Yaml::PARSE_CUSTOM_TAGS | Yaml::PARSE_CONSTANT);
+    }
+
+    /**
+     * @group legacy
+     */
+    public function testDeprecatedPhpConstantSyntaxAsScalarKey()
+    {
+        $this->expectDeprecation('Since symfony/yaml 6.2: YAML syntax for key "!php/const:Symfony\Component\Yaml\Tests\B::BAR" is deprecated and replaced by "!php/const Symfony\Component\Yaml\Tests\B::BAR".');
+        $actual = $this->parser->parse('!php/const:Symfony\Component\Yaml\Tests\B::BAR: value', Yaml::PARSE_CUSTOM_TAGS | Yaml::PARSE_CONSTANT);
+
+        $this->assertSame(['bar' => 'value'], $actual);
     }
 
     public function testPhpConstantTagMappingAsScalarKey()
@@ -2662,7 +2680,7 @@ EOE;
         $this->parser->parse($yaml, Yaml::PARSE_CUSTOM_TAGS);
     }
 
-    public function circularReferenceProvider()
+    public static function circularReferenceProvider()
     {
         $tests = [];
 
@@ -2702,7 +2720,7 @@ YAML;
         $this->assertSame($expected, $this->parser->parse($yaml));
     }
 
-    public function indentedMappingData()
+    public static function indentedMappingData()
     {
         $tests = [];
 

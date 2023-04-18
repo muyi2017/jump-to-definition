@@ -98,7 +98,7 @@ class RouteTest extends TestCase
         $this->assertEquals('bar2', $route->getDefault('foo2'), '->getDefault() return the default value');
         $this->assertNull($route->getDefault('not_defined'), '->getDefault() return null if default value is not set');
 
-        $route->setDefault('_controller', $closure = function () { return 'Hello'; });
+        $route->setDefault('_controller', $closure = fn () => 'Hello');
         $this->assertEquals($closure, $route->getDefault('_controller'), '->setDefault() sets a default value');
 
         $route->setDefaults(['foo' => 'foo']);
@@ -151,7 +151,7 @@ class RouteTest extends TestCase
         $route->setRequirement('foo', $req);
     }
 
-    public function getInvalidRequirements()
+    public static function getInvalidRequirements()
     {
         return [
            [''],
@@ -354,7 +354,7 @@ class RouteTest extends TestCase
         $this->assertSame($expected, $route->getRequirement('_locale'));
     }
 
-    public function provideNonLocalizedRoutes()
+    public static function provideNonLocalizedRoutes()
     {
         return [
             [new Route('/foo')],
@@ -364,7 +364,7 @@ class RouteTest extends TestCase
         ];
     }
 
-    public function provideLocalizedRoutes()
+    public static function provideLocalizedRoutes()
     {
         return [
             [(new Route('/foo'))->setDefault('_locale', 'en')->setDefault('_canonical_route', 'foo')->setRequirement('_locale', 'en')],

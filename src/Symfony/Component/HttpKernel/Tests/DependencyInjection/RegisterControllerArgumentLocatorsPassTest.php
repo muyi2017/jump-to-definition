@@ -12,8 +12,11 @@
 namespace Symfony\Component\HttpKernel\Tests\DependencyInjection;
 
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\DependencyInjection\Argument\RewindableGenerator;
 use Symfony\Component\DependencyInjection\Argument\ServiceClosureArgument;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\DependencyInjection\Attribute\TaggedIterator;
+use Symfony\Component\DependencyInjection\Attribute\TaggedLocator;
 use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\DependencyInjection\ChildDefinition;
 use Symfony\Component\DependencyInjection\ContainerAwareInterface;
@@ -24,6 +27,7 @@ use Symfony\Component\DependencyInjection\Exception\InvalidArgumentException;
 use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\DependencyInjection\ServiceLocator;
 use Symfony\Component\DependencyInjection\TypedReference;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\DependencyInjection\RegisterControllerArgumentLocatorsPass;
 use Symfony\Component\HttpKernel\Tests\Fixtures\Suit;
 
@@ -308,7 +312,7 @@ class RegisterControllerArgumentLocatorsPassTest extends TestCase
         $this->assertEquals($expected, $locator->getArgument(0));
     }
 
-    public function provideBindings()
+    public static function provideBindings()
     {
         return [
             [ControllerDummy::class.'$bar'],
@@ -343,7 +347,7 @@ class RegisterControllerArgumentLocatorsPassTest extends TestCase
         $this->assertSame('foo_val', $locator->get('foo::fooAction')->get('someArg'));
     }
 
-    public function provideBindScalarValueToControllerArgument()
+    public static function provideBindScalarValueToControllerArgument()
     {
         yield ['$someArg'];
         yield ['string $someArg'];
@@ -443,16 +447,26 @@ class RegisterControllerArgumentLocatorsPassTest extends TestCase
         $this->assertEquals($expected, $locator->getArgument(0));
     }
 
-    public function testAutowireAttribute()
+    public function testResponseArgumentIsIgnored()
     {
-        if (!class_exists(Autowire::class)) {
-            $this->markTestSkipped('#[Autowire] attribute not available.');
-        }
-
         $container = new ContainerBuilder();
         $resolver = $container->register('argument_resolver.service', 'stdClass')->addArgument([]);
 
-        $container->register('some.id', \stdClass::class);
+        $container->register('foo', WithResponseArgument::class)
+            ->addTag('controller.service_arguments');
+
+        (new RegisterControllerArgumentLocatorsPass())->process($container);
+
+        $locator = $container->getDefinition((string) $resolver->getArgument(0))->getArgument(0);
+        $this->assertEmpty(array_keys($locator), 'Response typed argument is ignored');
+    }
+
+    public function testAutowireAttribute()
+    {
+        $container = new ContainerBuilder();
+        $resolver = $container->register('argument_resolver.service', 'stdClass')->addArgument([]);
+
+        $container->register('some.id', \stdClass::class)->setPublic(true);
         $container->setParameter('some.parameter', 'foo');
 
         $container->register('foo', WithAutowireAttribute::class)
@@ -467,7 +481,7 @@ class RegisterControllerArgumentLocatorsPassTest extends TestCase
 
         $locator = $container->get($locatorId)->get('foo::fooAction');
 
-        $this->assertCount(7, $locator->getProvidedServices());
+        $this->assertCount(8, $locator->getProvidedServices());
         $this->assertInstanceOf(\stdClass::class, $locator->get('service1'));
         $this->assertSame('foo/bar', $locator->get('value'));
         $this->assertSame('foo', $locator->get('expression'));
@@ -475,7 +489,44 @@ class RegisterControllerArgumentLocatorsPassTest extends TestCase
         $this->assertInstanceOf(\stdClass::class, $locator->get('expressionAsValue'));
         $this->assertSame('bar', $locator->get('rawValue'));
         $this->assertSame('@bar', $locator->get('escapedRawValue'));
+        $this->assertSame('foo', $locator->get('customAutowire'));
         $this->assertFalse($locator->has('service2'));
+    }
+
+    public function testTaggedIteratorAndTaggedLocatorAttributes()
+    {
+        $container = new ContainerBuilder();
+        $resolver = $container->register('argument_resolver.service', \stdClass::class)->addArgument([]);
+
+        $container->register('bar', \stdClass::class)->addTag('foobar');
+        $container->register('baz', \stdClass::class)->addTag('foobar');
+
+        $container->register('foo', WithTaggedIteratorAndTaggedLocator::class)
+            ->addTag('controller.service_arguments');
+
+        (new RegisterControllerArgumentLocatorsPass())->process($container);
+
+        $locatorId = (string) $resolver->getArgument(0);
+        $container->getDefinition($locatorId)->setPublic(true);
+
+        $container->compile();
+
+        /** @var ServiceLocator $locator */
+        $locator = $container->get($locatorId)->get('foo::fooAction');
+
+        $this->assertCount(2, $locator->getProvidedServices());
+
+        $this->assertTrue($locator->has('iterator'));
+        $this->assertInstanceOf(RewindableGenerator::class, $argIterator = $locator->get('iterator'));
+        $this->assertCount(2, $argIterator);
+
+        $this->assertTrue($locator->has('locator'));
+        $this->assertInstanceOf(ServiceLocator::class, $argLocator = $locator->get('locator'));
+        $this->assertCount(2, $argLocator);
+        $this->assertTrue($argLocator->has('bar'));
+        $this->assertTrue($argLocator->has('baz'));
+
+        $this->assertSame(iterator_to_array($argIterator), [$argLocator->get('bar'), $argLocator->get('baz')]);
     }
 }
 
@@ -558,6 +609,22 @@ class WithTarget
     }
 }
 
+class WithResponseArgument
+{
+    public function fooAction(Response $response, ?Response $nullableResponse)
+    {
+    }
+}
+
+#[\Attribute(\Attribute::TARGET_PARAMETER)]
+class CustomAutowire extends Autowire
+{
+    public function __construct(string $parameter)
+    {
+        parent::__construct('%'.$parameter.'%');
+    }
+}
+
 class WithAutowireAttribute
 {
     public function fooAction(
@@ -575,8 +642,19 @@ class WithAutowireAttribute
         string $rawValue,
         #[Autowire('@@bar')]
         string $escapedRawValue,
+        #[CustomAutowire('some.parameter')]
+        string $customAutowire,
         #[Autowire(service: 'invalid.id')]
         \stdClass $service2 = null,
+    ) {
+    }
+}
+
+class WithTaggedIteratorAndTaggedLocator
+{
+    public function fooAction(
+        #[TaggedIterator('foobar')] iterable $iterator,
+        #[TaggedLocator('foobar')] ServiceLocator $locator,
     ) {
     }
 }

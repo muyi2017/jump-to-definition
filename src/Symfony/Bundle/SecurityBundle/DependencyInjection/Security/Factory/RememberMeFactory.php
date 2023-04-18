@@ -70,10 +70,9 @@ class RememberMeFactory implements AuthenticatorFactoryInterface, PrependExtensi
             $tokenVerifier = $this->createTokenVerifier($container, $firewallName, $config['token_verifier'] ?? null);
             $container->setDefinition($rememberMeHandlerId, new ChildDefinition('security.authenticator.persistent_remember_me_handler'))
                 ->replaceArgument(0, new Reference($tokenProviderId))
-                ->replaceArgument(1, $config['secret'])
-                ->replaceArgument(2, new Reference($userProviderId))
-                ->replaceArgument(4, $config)
-                ->replaceArgument(6, $tokenVerifier)
+                ->replaceArgument(1, new Reference($userProviderId))
+                ->replaceArgument(3, $config)
+                ->replaceArgument(5, $tokenVerifier)
                 ->addTag('security.remember_me_handler', ['firewall' => $firewallName]);
         } else {
             $signatureHasherId = 'security.authenticator.remember_me_signature_hasher.'.$firewallName;
@@ -133,7 +132,7 @@ class RememberMeFactory implements AuthenticatorFactoryInterface, PrependExtensi
         return 'remember-me';
     }
 
-    public function addConfiguration(NodeDefinition $node)
+    public function addConfiguration(NodeDefinition $node): void
     {
         $builder = $node
             ->fixXmlConfig('user_provider')
@@ -148,7 +147,7 @@ class RememberMeFactory implements AuthenticatorFactoryInterface, PrependExtensi
             ->scalarNode('service')->end()
             ->arrayNode('user_providers')
                 ->beforeNormalization()
-                    ->ifString()->then(function ($v) { return [$v]; })
+                    ->ifString()->then(fn ($v) => [$v])
                 ->end()
                 ->prototype('scalar')->end()
             ->end()
@@ -162,7 +161,7 @@ class RememberMeFactory implements AuthenticatorFactoryInterface, PrependExtensi
             ->end()
             ->arrayNode('token_provider')
                 ->beforeNormalization()
-                    ->ifString()->then(function ($v) { return ['service' => $v]; })
+                    ->ifString()->then(fn ($v) => ['service' => $v])
                 ->end()
                 ->children()
                     ->scalarNode('service')->info('The service ID of a custom rememberme token provider.')->end()
@@ -235,7 +234,7 @@ class RememberMeFactory implements AuthenticatorFactoryInterface, PrependExtensi
         return new Reference($tokenVerifierId, ContainerInterface::NULL_ON_INVALID_REFERENCE);
     }
 
-    public function prepend(ContainerBuilder $container)
+    public function prepend(ContainerBuilder $container): void
     {
         $rememberMeSecureDefault = false;
         $rememberMeSameSiteDefault = null;

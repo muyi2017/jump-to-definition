@@ -345,7 +345,7 @@ class DataMapperTest extends TestCase
         self::assertSame($publishedAtValue, $article['publishedAt']);
     }
 
-    public function provideDate(): array
+    public static function provideDate(): array
     {
         return [
             [new \DateTime()],
@@ -359,9 +359,7 @@ class DataMapperTest extends TestCase
         $person = new DummyPerson($initialName);
 
         $config = new FormConfigBuilder('name', null, $this->dispatcher, [
-            'getter' => static function (DummyPerson $person) {
-                return $person->myName();
-            },
+            'getter' => static fn (DummyPerson $person) => $person->myName(),
         ]);
         $form = new Form($config);
 

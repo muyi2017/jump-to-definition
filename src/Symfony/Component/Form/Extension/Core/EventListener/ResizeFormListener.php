@@ -26,18 +26,20 @@ class ResizeFormListener implements EventSubscriberInterface
 {
     protected $type;
     protected $options;
+    protected $prototypeOptions;
     protected $allowAdd;
     protected $allowDelete;
 
     private \Closure|bool $deleteEmpty;
 
-    public function __construct(string $type, array $options = [], bool $allowAdd = false, bool $allowDelete = false, bool|callable $deleteEmpty = false)
+    public function __construct(string $type, array $options = [], bool $allowAdd = false, bool $allowDelete = false, bool|callable $deleteEmpty = false, array $prototypeOptions = null)
     {
         $this->type = $type;
         $this->allowAdd = $allowAdd;
         $this->allowDelete = $allowDelete;
         $this->options = $options;
         $this->deleteEmpty = \is_bool($deleteEmpty) ? $deleteEmpty : $deleteEmpty(...);
+        $this->prototypeOptions = $prototypeOptions ?? $options;
     }
 
     public static function getSubscribedEvents(): array
@@ -50,6 +52,9 @@ class ResizeFormListener implements EventSubscriberInterface
         ];
     }
 
+    /**
+     * @return void
+     */
     public function preSetData(FormEvent $event)
     {
         $form = $event->getForm();
@@ -72,6 +77,9 @@ class ResizeFormListener implements EventSubscriberInterface
         }
     }
 
+    /**
+     * @return void
+     */
     public function preSubmit(FormEvent $event)
     {
         $form = $event->getForm();
@@ -96,12 +104,15 @@ class ResizeFormListener implements EventSubscriberInterface
                 if (!$form->has($name)) {
                     $form->add($name, $this->type, array_replace([
                         'property_path' => '['.$name.']',
-                    ], $this->options));
+                    ], $this->prototypeOptions));
                 }
             }
         }
     }
 
+    /**
+     * @return void
+     */
     public function onSubmit(FormEvent $event)
     {
         $form = $event->getForm();

@@ -11,11 +11,12 @@
 
 namespace Symfony\Component\DependencyInjection\Loader\Configurator;
 
+use Psr\Clock\ClockInterface as PsrClockInterface;
 use Psr\EventDispatcher\EventDispatcherInterface as PsrEventDispatcherInterface;
 use Symfony\Bundle\FrameworkBundle\CacheWarmer\ConfigBuilderCacheWarmer;
 use Symfony\Bundle\FrameworkBundle\HttpCache\HttpCache;
+use Symfony\Component\Clock\Clock;
 use Symfony\Component\Clock\ClockInterface;
-use Symfony\Component\Clock\NativeClock;
 use Symfony\Component\Config\Loader\LoaderInterface;
 use Symfony\Component\Config\Resource\SelfCheckingResourceChecker;
 use Symfony\Component\Config\ResourceCheckerConfigCacheFactory;
@@ -228,8 +229,9 @@ return static function (ContainerConfigurator $container) {
             ->args([service(KernelInterface::class), service('logger')->nullOnInvalid()])
             ->tag('kernel.cache_warmer')
 
-        ->set('clock', NativeClock::class)
+        ->set('clock', Clock::class)
         ->alias(ClockInterface::class, 'clock')
+        ->alias(PsrClockInterface::class, 'clock')
 
         // register as abstract and excluded, aka not-autowirable types
         ->set(LoaderInterface::class)->abstract()->tag('container.excluded')

@@ -958,7 +958,7 @@ class FinderTest extends Iterator\RealIteratorTestCase
     public function testSort()
     {
         $finder = $this->buildFinder();
-        $this->assertSame($finder, $finder->sort(function (\SplFileInfo $a, \SplFileInfo $b) { return strcmp($a->getRealPath(), $b->getRealPath()); }));
+        $this->assertSame($finder, $finder->sort(fn (\SplFileInfo $a, \SplFileInfo $b) => strcmp($a->getRealPath(), $b->getRealPath())));
         $this->assertOrderedIterator($this->toAbsolute([
             'Zephire.php',
             'foo',
@@ -990,12 +990,8 @@ class FinderTest extends Iterator\RealIteratorTestCase
             ])
             ->depth(0)
             ->files()
-            ->filter(static function (\SplFileInfo $file): bool {
-                return '' !== $file->getExtension();
-            })
-            ->sort(static function (\SplFileInfo $a, \SplFileInfo $b): int {
-                return strcmp($a->getExtension(), $b->getExtension()) ?: strcmp($a->getFilename(), $b->getFilename());
-            })
+            ->filter(static fn (\SplFileInfo $file): bool => '' !== $file->getExtension())
+            ->sort(static fn (\SplFileInfo $a, \SplFileInfo $b): int => strcmp($a->getExtension(), $b->getExtension()) ?: strcmp($a->getFilename(), $b->getFilename()))
         ;
 
         $this->assertOrderedIterator($this->toAbsolute([
@@ -1018,7 +1014,7 @@ class FinderTest extends Iterator\RealIteratorTestCase
     public function testFilter()
     {
         $finder = $this->buildFinder();
-        $this->assertSame($finder, $finder->filter(function (\SplFileInfo $f) { return str_contains($f, 'test'); }));
+        $this->assertSame($finder, $finder->filter(fn (\SplFileInfo $f) => str_contains($f, 'test')));
         $this->assertIterator($this->toAbsolute(['test.php', 'test.py']), $finder->in(self::$tmpDir)->getIterator());
     }
 
@@ -1436,7 +1432,7 @@ class FinderTest extends Iterator\RealIteratorTestCase
         $this->assertIterator($this->toAbsoluteFixtures($expected), $finder);
     }
 
-    public function getContainsTestData()
+    public static function getContainsTestData()
     {
         return [
             ['', '', []],
@@ -1454,7 +1450,7 @@ class FinderTest extends Iterator\RealIteratorTestCase
         ];
     }
 
-    public function getRegexNameTestData()
+    public static function getRegexNameTestData()
     {
         return [
             ['~.*t\\.p.+~i'],
@@ -1475,7 +1471,7 @@ class FinderTest extends Iterator\RealIteratorTestCase
         $this->assertIterator($this->toAbsoluteFixtures($expected), $finder);
     }
 
-    public function getTestPathData()
+    public static function getTestPathData()
     {
         return [
             ['', '', []],

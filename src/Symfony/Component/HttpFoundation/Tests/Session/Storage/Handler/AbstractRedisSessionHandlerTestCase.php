@@ -12,10 +12,12 @@
 namespace Symfony\Component\HttpFoundation\Tests\Session\Storage\Handler;
 
 use PHPUnit\Framework\TestCase;
+use Relay\Relay;
 use Symfony\Component\HttpFoundation\Session\Storage\Handler\RedisSessionHandler;
 
 /**
  * @requires extension redis
+ *
  * @group time-sensitive
  */
 abstract class AbstractRedisSessionHandlerTestCase extends TestCase
@@ -32,7 +34,7 @@ abstract class AbstractRedisSessionHandlerTestCase extends TestCase
      */
     protected $redisClient;
 
-    abstract protected function createRedisClient(string $host): \Redis|\RedisArray|\RedisCluster|\Predis\Client;
+    abstract protected function createRedisClient(string $host): \Redis|Relay|\RedisArray|\RedisCluster|\Predis\Client;
 
     protected function setUp(): void
     {
@@ -137,7 +139,7 @@ abstract class AbstractRedisSessionHandlerTestCase extends TestCase
         }
     }
 
-    public function getOptionFixtures(): array
+    public static function getOptionFixtures(): array
     {
         return [
             [['prefix' => 'session'], true],
@@ -178,7 +180,7 @@ abstract class AbstractRedisSessionHandlerTestCase extends TestCase
         $this->assertGreaterThan($redisTtl, $ttl + 5);
     }
 
-    public function getTtlFixtures(): array
+    public static function getTtlFixtures(): array
     {
         return [
             ['ttl' => 5000],

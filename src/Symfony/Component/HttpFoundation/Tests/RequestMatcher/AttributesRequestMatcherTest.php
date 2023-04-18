@@ -26,13 +26,11 @@ class AttributesRequestMatcherTest extends TestCase
         $matcher = new AttributesRequestMatcher([$key => $regexp]);
         $request = Request::create('/admin/foo');
         $request->attributes->set('foo', 'foo_bar');
-        $request->attributes->set('_controller', function () {
-            return new Response('foo');
-        });
+        $request->attributes->set('_controller', fn () => new Response('foo'));
         $this->assertSame($expected, $matcher->matches($request));
     }
 
-    public function getData(): array
+    public static function getData(): array
     {
         return [
             ['foo', 'foo_.*', true],

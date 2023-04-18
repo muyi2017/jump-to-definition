@@ -225,7 +225,7 @@ EOF;
         $this->assertSameData($input, $this->parser->parse($expected));
     }
 
-    public function getEscapeSequences()
+    public static function getEscapeSequences()
     {
         return [
             'empty string' => ['', "''"],
@@ -275,7 +275,7 @@ EOF;
         $this->assertSameData($expected, $this->parser->parse($yaml, Yaml::PARSE_OBJECT_FOR_MAP));
     }
 
-    public function objectAsMapProvider()
+    public static function objectAsMapProvider()
     {
         $tests = [];
 
@@ -440,6 +440,26 @@ YAML;
         $this->assertSameData($data, $this->parser->parse($yaml, Yaml::PARSE_CUSTOM_TAGS));
     }
 
+    public function testDumpingTaggedValueTopLevelAssoc()
+    {
+        $data = new TaggedValue('user', ['name' => 'jane']);
+
+        $expected = <<<'YAML'
+!user
+name: jane
+
+YAML;
+        $yaml = $this->dumper->dump($data, 2);
+        $this->assertSame($expected, $yaml);
+    }
+
+    public function testDumpingTaggedValueTopLevelMultiLine()
+    {
+        $data = new TaggedValue('text', "a\nb\n");
+
+        $this->assertSame("!text |\n    a\n    b\n    ", $this->dumper->dump($data, 2, 0, Yaml::DUMP_MULTI_LINE_LITERAL_BLOCK));
+    }
+
     public function testDumpingTaggedValueSpecialCharsInTag()
     {
         // @todo Validate the tag name in the TaggedValue constructor.
@@ -473,8 +493,6 @@ YAML;
 
 YAML;
         $this->assertSame($expected, $yaml);
-        // @todo Fix the parser, preserve numbers.
-        $data[2] = new TaggedValue('number', '5');
         $this->assertSameData($data, $this->parser->parse($expected, Yaml::PARSE_CUSTOM_TAGS));
     }
 
@@ -503,8 +521,6 @@ count: !number 5
 
 YAML;
         $this->assertSame($expected, $yaml);
-        // @todo Fix the parser, preserve numbers.
-        $data['count'] = new TaggedValue('number', '5');
         $this->assertSameData($data, $this->parser->parse($expected, Yaml::PARSE_CUSTOM_TAGS));
     }
 
@@ -558,9 +574,6 @@ foo: !bar null
 YAML;
 
         $this->assertSame($expected, $this->dumper->dump($data, 2));
-
-        // @todo Fix the parser, don't stringify null.
-        $data['foo'] = new TaggedValue('bar', 'null');
         $this->assertSameData($data, $this->parser->parse($expected, Yaml::PARSE_CUSTOM_TAGS | Yaml::PARSE_CONSTANT));
     }
 
@@ -804,6 +817,96 @@ YAML;
         $this->assertSame('{ foo: ~ }', $this->dumper->dump(['foo' => null], 0, 0, Yaml::DUMP_NULL_AS_TILDE));
     }
 
+    /**
+     * @dataProvider getNumericKeyData
+     */
+    public function testDumpInlineNumericKeyAsString(array $input, bool $inline, int $flags, string $expected)
+    {
+        $this->assertSame($expected, $this->dumper->dump($input, $inline ? 0 : 4, 0, $flags));
+    }
+
+    public static function getNumericKeyData()
+    {
+        yield 'Int key with flag inline' => [
+            [200 => 'foo'],
+            true,
+            Yaml::DUMP_NUMERIC_KEY_AS_STRING,
+            "{ '200': foo }",
+        ];
+
+        yield 'Int key without flag inline' => [
+            [200 => 'foo'],
+            true,
+            0,
+            '{ 200: foo }',
+        ];
+
+        $expected = <<<'YAML'
+        '200': foo
+
+        YAML;
+
+        yield 'Int key with flag' => [
+            [200 => 'foo'],
+            false,
+            Yaml::DUMP_NUMERIC_KEY_AS_STRING,
+            $expected,
+        ];
+
+        $expected = <<<'YAML'
+        200: foo
+
+        YAML;
+
+        yield 'Int key without flag' => [
+            [200 => 'foo'],
+            false,
+            0,
+            $expected,
+        ];
+
+        $expected = <<<'YAML'
+        - 200
+        - foo
+
+        YAML;
+
+        yield 'List array with flag' => [
+            [200, 'foo'],
+            false,
+            Yaml::DUMP_NUMERIC_KEY_AS_STRING,
+            $expected,
+        ];
+
+        $expected = <<<'YAML'
+        '200': !number 5
+
+        YAML;
+
+        yield 'Int tagged value with flag' => [
+            [
+                200 => new TaggedValue('number', 5),
+            ],
+            false,
+            Yaml::DUMP_NUMERIC_KEY_AS_STRING,
+            $expected,
+        ];
+
+        $expected = <<<'YAML'
+        200: !number 5
+
+        YAML;
+
+        yield 'Int tagged value without flag' => [
+            [
+                200 => new TaggedValue('number', 5),
+            ],
+            false,
+            0,
+            $expected,
+        ];
+    }
+
     public function testDumpIdeographicSpaces()
     {
         $expected = <<<YAML
@@ -817,6 +920,52 @@ YAML;
             'within_string' => 'a　b',
             'regular_space' => 'a b',
         ], 2));
+    }
+
+    /**
+     * @dataProvider getDateTimeData
+     */
+    public function testDumpDateTime(array $input, string $expected)
+    {
+        $this->assertSame($expected, rtrim($this->dumper->dump($input, 1)));
+    }
+
+    public static function getDateTimeData()
+    {
+        yield 'Date without subsecond precision' => [
+            ['date' => new \DateTimeImmutable('2023-01-24T01:02:03Z')],
+            'date: 2023-01-24T01:02:03+00:00',
+        ];
+
+        yield 'Date with one digit for milliseconds' => [
+            ['date' => new \DateTimeImmutable('2023-01-24T01:02:03.4Z')],
+            'date: 2023-01-24T01:02:03.400+00:00',
+        ];
+
+        yield 'Date with two digits for milliseconds' => [
+            ['date' => new \DateTimeImmutable('2023-01-24T01:02:03.45Z')],
+            'date: 2023-01-24T01:02:03.450+00:00',
+        ];
+
+        yield 'Date with full milliseconds' => [
+            ['date' => new \DateTimeImmutable('2023-01-24T01:02:03.456Z')],
+            'date: 2023-01-24T01:02:03.456+00:00',
+        ];
+
+        yield 'Date with four digits for microseconds' => [
+            ['date' => new \DateTimeImmutable('2023-01-24T01:02:03.4567Z')],
+            'date: 2023-01-24T01:02:03.456700+00:00',
+        ];
+
+        yield 'Date with five digits for microseconds' => [
+            ['date' => new \DateTimeImmutable('2023-01-24T01:02:03.45678Z')],
+            'date: 2023-01-24T01:02:03.456780+00:00',
+        ];
+
+        yield 'Date with full microseconds' => [
+            ['date' => new \DateTimeImmutable('2023-01-24T01:02:03.456789Z')],
+            'date: 2023-01-24T01:02:03.456789+00:00',
+        ];
     }
 
     private function assertSameData($expected, $actual)

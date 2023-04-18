@@ -165,7 +165,7 @@ HTML
         $this->assertSame('A', $nodeList->item(0)->textContent);
     }
 
-    public function getXpathLiteralTestData()
+    public static function getXpathLiteralTestData()
     {
         return [
             ['foo', "'foo'"],
@@ -175,7 +175,7 @@ HTML
         ];
     }
 
-    public function getCssToXPathTestData()
+    public static function getCssToXPathTestData()
     {
         return [
             ['*', '*'],
@@ -219,10 +219,12 @@ HTML
             ['e + f', "e/following-sibling::*[(name() = 'f') and (position() = 1)]"],
             ['e ~ f', 'e/following-sibling::f'],
             ['div#container p', "div[@id = 'container']/descendant-or-self::*/p"],
+            [':scope > div[dataimg="<testmessage>"]', "*[1]/div[@dataimg = '<testmessage>']"],
+            [':scope', '*[1]'],
         ];
     }
 
-    public function getXmlLangTestData()
+    public static function getXmlLangTestData()
     {
         return [
             [':lang("EN")', ['first', 'second', 'third', 'fourth']],
@@ -237,7 +239,7 @@ HTML
         ];
     }
 
-    public function getHtmlIdsTestData()
+    public static function getHtmlIdsTestData()
     {
         return [
             ['div', ['outer-div', 'li-div', 'foobar-div']],
@@ -362,7 +364,7 @@ HTML
         ];
     }
 
-    public function getHtmlShakespearTestData()
+    public static function getHtmlShakespearTestData()
     {
         return [
             ['*', 246],
@@ -411,6 +413,9 @@ HTML
             ['div[class|=dialog]', 50], // ? Seems right
             ['div[class!=madeup]', 243], // ? Seems right
             ['div[class~=dialog]', 51], // ? Seems right
+            [':scope > div', 1],
+            [':scope > div > div[class=dialog]', 1],
+            [':scope > div div', 242],
         ];
     }
 }

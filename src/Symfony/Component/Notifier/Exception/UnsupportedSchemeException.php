@@ -24,6 +24,14 @@ class UnsupportedSchemeException extends LogicException
             'class' => Bridge\AllMySms\AllMySmsTransportFactory::class,
             'package' => 'symfony/all-my-sms-notifier',
         ],
+        'bandwidth' => [
+            'class' => Bridge\Bandwidth\BandwidthTransportFactory::class,
+            'package' => 'symfony/bandwidth-notifier',
+        ],
+        'chatwork' => [
+            'class' => Bridge\Chatwork\ChatworkTransportFactory::class,
+            'package' => 'symfony/chatwork-notifier',
+        ],
         'clickatell' => [
             'class' => Bridge\Clickatell\ClickatellTransportFactory::class,
             'package' => 'symfony/clickatell-notifier',
@@ -88,9 +96,21 @@ class UnsupportedSchemeException extends LogicException
             'class' => Bridge\Iqsms\IqsmsTransportFactory::class,
             'package' => 'symfony/iqsms-notifier',
         ],
+        'isendpro' => [
+            'class' => Bridge\Isendpro\IsendproTransportFactory::class,
+            'package' => 'symfony/isendpro-notifier',
+        ],
+        'kaz-info-teh' => [
+            'class' => Bridge\KazInfoTeh\KazInfoTehTransportFactory::class,
+            'package' => 'symfony/symfony/kaz-info-teh-notifier',
+        ],
         'lightsms' => [
             'class' => Bridge\LightSms\LightSmsTransportFactory::class,
             'package' => 'symfony/light-sms-notifier',
+        ],
+        'linenotify' => [
+            'class' => Bridge\LineNotify\LineNotifyTransportFactory::class,
+            'package' => 'symfony/line-notify-notifier',
         ],
         'linkedin' => [
             'class' => Bridge\LinkedIn\LinkedInTransportFactory::class,
@@ -99,6 +119,10 @@ class UnsupportedSchemeException extends LogicException
         'mailjet' => [
             'class' => Bridge\Mailjet\MailjetTransportFactory::class,
             'package' => 'symfony/mailjet-notifier',
+        ],
+        'mastodon' => [
+            'class' => Bridge\Mastodon\MastodonTransportFactory::class,
+            'package' => 'symfony/mastodon-notifier',
         ],
         'mattermost' => [
             'class' => Bridge\Mattermost\MattermostTransportFactory::class,
@@ -140,6 +164,22 @@ class UnsupportedSchemeException extends LogicException
             'class' => Bridge\OvhCloud\OvhCloudTransportFactory::class,
             'package' => 'symfony/ovh-cloud-notifier',
         ],
+        'pagerduty' => [
+            'class' => Bridge\PagerDuty\PagerDutyTransportFactory::class,
+            'package' => 'symfony/pager-duty-notifier',
+        ],
+        'plivo' => [
+            'class' => Bridge\Plivo\PlivoTransportFactory::class,
+            'package' => 'symfony/plivo-notifier',
+        ],
+        'pushover' => [
+            'class' => Bridge\Pushover\PushoverTransportFactory::class,
+            'package' => 'symfony/pushover-notifier',
+        ],
+        'ringcentral' => [
+            'class' => Bridge\RingCentral\RingCentralTransportFactory::class,
+            'package' => 'symfony/ring-central-notifier',
+        ],
         'rocketchat' => [
             'class' => Bridge\RocketChat\RocketChatTransportFactory::class,
             'package' => 'symfony/rocket-chat-notifier',
@@ -151,6 +191,10 @@ class UnsupportedSchemeException extends LogicException
         'sendinblue' => [
             'class' => Bridge\Sendinblue\SendinblueTransportFactory::class,
             'package' => 'symfony/sendinblue-notifier',
+        ],
+        'simpletextin' => [
+            'class' => Bridge\SimpleTextin\SimpleTextinTransportFactory::class,
+            'package' => 'symfony/simple-textin-notifier',
         ],
         'sinch' => [
             'class' => Bridge\Sinch\SinchTransportFactory::class,
@@ -196,6 +240,10 @@ class UnsupportedSchemeException extends LogicException
             'class' => Bridge\Telnyx\TelnyxTransportFactory::class,
             'package' => 'symfony/telnyx-notifier',
         ],
+        'termii' => [
+            'class' => Bridge\Termii\TermiiTransportFactory::class,
+            'package' => 'symfony/termii-notifier',
+        ],
         'turbosms' => [
             'class' => Bridge\TurboSms\TurboSmsTransportFactory::class,
             'package' => 'symfony/turbo-sms-notifier',
@@ -203,6 +251,10 @@ class UnsupportedSchemeException extends LogicException
         'twilio' => [
             'class' => Bridge\Twilio\TwilioTransportFactory::class,
             'package' => 'symfony/twilio-notifier',
+        ],
+        'twitter' => [
+            'class' => Bridge\Twitter\TwitterTransportFactory::class,
+            'package' => 'symfony/twitter-notifier',
         ],
         'vonage' => [
             'class' => Bridge\Vonage\VonageTransportFactory::class,

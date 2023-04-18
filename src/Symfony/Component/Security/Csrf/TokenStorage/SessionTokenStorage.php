@@ -56,7 +56,10 @@ class SessionTokenStorage implements ClearableTokenStorageInterface
         return (string) $session->get($this->namespace.'/'.$tokenId);
     }
 
-    public function setToken(string $tokenId, string $token)
+    /**
+     * @return void
+     */
+    public function setToken(string $tokenId, #[\SensitiveParameter] string $token)
     {
         $session = $this->getSession();
         if (!$session->isStarted()) {
@@ -86,6 +89,9 @@ class SessionTokenStorage implements ClearableTokenStorageInterface
         return $session->remove($this->namespace.'/'.$tokenId);
     }
 
+    /**
+     * @return void
+     */
     public function clear()
     {
         $session = $this->getSession();

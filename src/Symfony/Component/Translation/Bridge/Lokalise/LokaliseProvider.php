@@ -149,6 +149,7 @@ final class LokaliseProvider implements ProviderInterface
                 'filter_langs' => array_values($locales),
                 'filter_filenames' => array_map($this->getLokaliseFilenameFromDomain(...), $domains),
                 'export_empty_as' => 'skip',
+                'replace_breaks' => false,
             ],
         ]);
 
@@ -355,9 +356,7 @@ final class LokaliseProvider implements ProviderInterface
     {
         $response = $this->client->request('POST', 'languages', [
             'json' => [
-                'languages' => array_map(static function ($language) {
-                    return ['lang_iso' => $language];
-                }, $languages),
+                'languages' => array_map(static fn ($language) => ['lang_iso' => $language], $languages),
             ],
         ]);
 

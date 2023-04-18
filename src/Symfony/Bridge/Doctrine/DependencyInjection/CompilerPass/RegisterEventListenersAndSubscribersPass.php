@@ -106,6 +106,7 @@ class RegisterEventListenersAndSubscribersPass implements CompilerPassInterface
                     $refs = $managerDef->getArguments()[1] ?? [];
                     $listenerRefs[$con][$id] = new Reference($id);
                     if ($subscriberTag === $tagName) {
+                        trigger_deprecation('symfony/doctrine-bridge', '6.3', 'Using Doctrine subscribers as services is deprecated, declare listeners instead');
                         $refs[] = $id;
                     } else {
                         $refs[] = [[$tag['event']], $id];
@@ -124,7 +125,7 @@ class RegisterEventListenersAndSubscribersPass implements CompilerPassInterface
         return $listenerRefs;
     }
 
-    private function getEventManagerDef(ContainerBuilder $container, string $name)
+    private function getEventManagerDef(ContainerBuilder $container, string $name): Definition
     {
         if (!isset($this->eventManagers[$name])) {
             $this->eventManagers[$name] = $container->getDefinition(sprintf($this->managerTemplate, $name));

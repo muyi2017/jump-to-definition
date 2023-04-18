@@ -74,6 +74,9 @@ class AsciiSlugger implements SluggerInterface, LocaleAwareInterface
         $this->symbolsMap = $symbolsMap ?? $this->symbolsMap;
     }
 
+    /**
+     * @return void
+     */
     public function setLocale(string $locale)
     {
         $this->defaultLocale = $locale;
@@ -113,19 +116,15 @@ class AsciiSlugger implements SluggerInterface, LocaleAwareInterface
             $transliterator = (array) $this->createTransliterator($locale);
         }
 
-        if (\is_string($this->emoji)) {
-            $transliterator[] = EmojiTransliterator::create("emoji-{$this->emoji}");
-        } elseif ($this->emoji && null !== $locale) {
-            $transliterator[] = EmojiTransliterator::create("emoji-{$locale}");
+        if ($emojiTransliterator = $this->createEmojiTransliterator($locale)) {
+            $transliterator[] = $emojiTransliterator;
         }
 
         if ($this->symbolsMap instanceof \Closure) {
             // If the symbols map is passed as a closure, there is no need to fallback to the parent locale
             // as the closure can just provide substitutions for all locales of interest.
             $symbolsMap = $this->symbolsMap;
-            array_unshift($transliterator, static function ($s) use ($symbolsMap, $locale) {
-                return $symbolsMap($s, $locale);
-            });
+            array_unshift($transliterator, static fn ($s) => $symbolsMap($s, $locale));
         }
 
         $unicodeString = (new UnicodeString($string))->ascii($transliterator);
@@ -175,6 +174,25 @@ class AsciiSlugger implements SluggerInterface, LocaleAwareInterface
         }
 
         return $this->transliterators[$locale] = $this->transliterators[$parent] = $transliterator ?? null;
+    }
+
+    private function createEmojiTransliterator(?string $locale): ?EmojiTransliterator
+    {
+        if (\is_string($this->emoji)) {
+            $locale = $this->emoji;
+        } elseif (!$this->emoji) {
+            return null;
+        }
+
+        while (null !== $locale) {
+            try {
+                return EmojiTransliterator::create("emoji-$locale");
+            } catch (\IntlException) {
+                $locale = self::getParentLocale($locale);
+            }
+        }
+
+        return null;
     }
 
     private static function getParentLocale(?string $locale): ?string
