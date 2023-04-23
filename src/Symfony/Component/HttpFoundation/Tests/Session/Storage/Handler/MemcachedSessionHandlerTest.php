@@ -16,6 +16,7 @@ use Symfony\Component\HttpFoundation\Session\Storage\Handler\MemcachedSessionHan
 
 /**
  * @requires extension memcached
+ *
  * @group time-sensitive
  */
 class MemcachedSessionHandlerTest extends TestCase
@@ -44,7 +45,7 @@ class MemcachedSessionHandlerTest extends TestCase
 
         $this->memcached = $this->getMockBuilder(\Memcached::class)
             ->disableOriginalConstructor()
-            ->setMethods($methodsToMock)
+            ->onlyMethods($methodsToMock)
             ->getMock();
 
         $this->storage = new MemcachedSessionHandler(
@@ -92,11 +93,28 @@ class MemcachedSessionHandlerTest extends TestCase
         $this->memcached
             ->expects($this->once())
             ->method('set')
-            ->with(self::PREFIX.'id', 'data', $this->equalTo(time() + self::TTL, 2))
+            ->with(self::PREFIX.'id', 'data', $this->equalTo(self::TTL, 2))
             ->willReturn(true)
         ;
 
         $this->assertTrue($this->storage->write('id', 'data'));
+    }
+
+    public function testWriteSessionWithLargeTTL()
+    {
+        $this->memcached
+            ->expects($this->once())
+            ->method('set')
+            ->with(self::PREFIX.'id', 'data', $this->equalTo(time() + self::TTL + 60 * 60 * 24 * 30, 2))
+            ->willReturn(true)
+        ;
+
+        $storage = new MemcachedSessionHandler(
+            $this->memcached,
+            ['prefix' => self::PREFIX, 'expiretime' => self::TTL + 60 * 60 * 24 * 30]
+        );
+
+        $this->assertTrue($storage->write('id', 'data'));
     }
 
     public function testDestroySession()
@@ -129,7 +147,7 @@ class MemcachedSessionHandlerTest extends TestCase
         }
     }
 
-    public function getOptionFixtures()
+    public static function getOptionFixtures()
     {
         return [
             [['prefix' => 'session'], true],

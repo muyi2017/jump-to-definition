@@ -369,13 +369,17 @@ class XmlFileLoaderTest extends TestCase
         $this->assertEquals([new IteratorArgument(['k1' => new Reference('foo.baz'), 'k2' => new Reference('service_container')]), new IteratorArgument([])], $lazyDefinition->getArguments(), '->load() parses lazy arguments');
     }
 
-    public function testParsesTags()
+    /**
+     * @testWith ["foo_tag"]
+     *           ["bar_tag"]
+     */
+    public function testParsesTags(string $tag)
     {
         $container = new ContainerBuilder();
         $loader = new XmlFileLoader($container, new FileLocator(self::$fixturesPath.'/xml'));
         $loader->load('services10.xml');
 
-        $services = $container->findTaggedServiceIds('foo_tag');
+        $services = $container->findTaggedServiceIds($tag);
         $this->assertCount(1, $services);
 
         foreach ($services as $id => $tagAttributes) {
@@ -796,7 +800,7 @@ class XmlFileLoaderTest extends TestCase
         $this->assertContains('reflection.Symfony\Component\DependencyInjection\Tests\Fixtures\Prototype\Sub\Bar', $resources);
     }
 
-    public function prototypeExcludeWithArrayDataProvider(): iterable
+    public static function prototypeExcludeWithArrayDataProvider(): iterable
     {
         return [
             ['services_prototype_array.xml'],
@@ -1161,5 +1165,43 @@ class XmlFileLoaderTest extends TestCase
 
         $definition = $container->getDefinition('closure_property')->getProperties()['foo'];
         $this->assertEquals((new Definition('Closure'))->setFactory(['Closure', 'fromCallable'])->addArgument(new Reference('bar')), $definition);
+    }
+
+    /**
+     * @dataProvider dataForBindingsAndInnerCollections
+     */
+    public function testBindingsAndInnerCollections($bindName, $expected)
+    {
+        $container = new ContainerBuilder();
+        $loader = new XmlFileLoader($container, new FileLocator(self::$fixturesPath.'/xml'));
+        $loader->load('bindings_and_inner_collections.xml');
+        (new ResolveBindingsPass())->process($container);
+        $definition = $container->getDefinition($bindName);
+        $actual = $definition->getBindings()['$foo']->getValues()[0];
+        $this->assertEquals($actual, $expected);
+    }
+
+    public static function dataForBindingsAndInnerCollections()
+    {
+        return [
+           ['bar1', ['item.1', 'item.2']],
+           ['bar2', ['item.1', 'item.2']],
+           ['bar3', ['item.1', 'item.2', 'item.3', 'item.4']],
+           ['bar4', ['item.1', 'item.3', 'item.4']],
+           ['bar5', ['item.1', 'item.2', ['item.3.1', 'item.3.2']]],
+           ['bar6', ['item.1', ['item.2.1', 'item.2.2'], 'item.3']],
+           ['bar7', new IteratorArgument(['item.1', 'item.2'])],
+           ['bar8', new IteratorArgument(['item.1', 'item.2', ['item.3.1', 'item.3.2']])],
+        ];
+    }
+
+    public function testTagNameAttribute()
+    {
+        $container = new ContainerBuilder();
+        $loader = new XmlFileLoader($container, new FileLocator(self::$fixturesPath.'/xml'));
+        $loader->load('tag_with_name_attribute.xml');
+
+        $definition = $container->getDefinition('foo');
+        $this->assertSame([['name' => 'name_attribute']], $definition->getTag('tag_name'));
     }
 }

@@ -61,7 +61,7 @@ class ConfigurationTest extends TestCase
         );
     }
 
-    public function getTestInvalidSessionName()
+    public static function getTestInvalidSessionName()
     {
         return [
             ['a.b'],
@@ -115,7 +115,7 @@ class ConfigurationTest extends TestCase
         $this->assertArrayHasKey($packageName, $config['assets']['packages']);
     }
 
-    public function provideValidAssetsPackageNameConfigurationTests()
+    public static function provideValidAssetsPackageNameConfigurationTests()
     {
         return [
             ['foobar'],
@@ -142,7 +142,7 @@ class ConfigurationTest extends TestCase
             ]);
     }
 
-    public function provideInvalidAssetConfigurationTests()
+    public static function provideInvalidAssetConfigurationTests()
     {
         // helper to turn config into embedded package config
         $createPackageConfig = function (array $packageConfig) {
@@ -196,7 +196,7 @@ class ConfigurationTest extends TestCase
         $this->assertEquals($processedConfig, $config['lock']);
     }
 
-    public function provideValidLockConfigurationTests()
+    public static function provideValidLockConfigurationTests()
     {
         yield [null, ['enabled' => true, 'resources' => ['default' => [class_exists(SemaphoreStore::class) && SemaphoreStore::isSupported() ? 'semaphore' : 'flock']]]];
 
@@ -290,7 +290,7 @@ class ConfigurationTest extends TestCase
         $this->assertEquals($processedConfig, $config['semaphore']);
     }
 
-    public function provideValidSemaphoreConfigurationTests()
+    public static function provideValidSemaphoreConfigurationTests()
     {
         yield [null, ['enabled' => true, 'resources' => []]];
 
@@ -423,6 +423,37 @@ class ConfigurationTest extends TestCase
                         'baz' => null,
                     ],
                 ],
+            ],
+        ]);
+    }
+
+    public function testLockCanBeDisabled()
+    {
+        $processor = new Processor();
+        $configuration = new Configuration(true);
+
+        $config = $processor->processConfiguration($configuration, [
+            [
+                'http_method_override' => false,
+                'lock' => ['enabled' => false],
+            ],
+        ]);
+
+        $this->assertFalse($config['lock']['enabled']);
+    }
+
+    public function testEnabledLockNeedsResources()
+    {
+        $processor = new Processor();
+        $configuration = new Configuration(true);
+
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('Invalid configuration for path "framework.lock": At least one resource must be defined.');
+
+        $processor->processConfiguration($configuration, [
+            [
+                'http_method_override' => false,
+                'lock' => ['enabled' => true],
             ],
         ]);
     }

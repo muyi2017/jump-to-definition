@@ -207,7 +207,7 @@ class PdoSessionHandler extends AbstractSessionHandler
 
         try {
             $this->pdo->exec($sql);
-            $this->pdo->exec("CREATE INDEX EXPIRY ON $this->table ($this->lifetimeCol)");
+            $this->pdo->exec("CREATE INDEX expiry ON $this->table ($this->lifetimeCol)");
         } catch (\PDOException $e) {
             $this->rollback();
 
@@ -441,8 +441,8 @@ class PdoSessionHandler extends AbstractSessionHandler
                         return $dsn;
                     }
                 }
-            // If "unix_socket" is not in the query, we continue with the same process as pgsql
-            // no break
+                // If "unix_socket" is not in the query, we continue with the same process as pgsql
+                // no break
             case 'pgsql':
                 $dsn ??= 'pgsql:';
 

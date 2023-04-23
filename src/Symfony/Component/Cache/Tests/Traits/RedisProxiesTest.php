@@ -27,7 +27,7 @@ class RedisProxiesTest extends TestCase
     public function testRedis5Proxy($class)
     {
         $proxy = file_get_contents(\dirname(__DIR__, 2)."/Traits/{$class}5Proxy.php");
-        $proxy = substr($proxy, 0, 8 + strpos($proxy, "\n    ];"));
+        $proxy = substr($proxy, 0, 4 + strpos($proxy, '[];'));
         $methods = [];
 
         foreach ((new \ReflectionClass($class))->getMethods() as $method) {
@@ -35,9 +35,9 @@ class RedisProxiesTest extends TestCase
                 continue;
             }
             $return = $method->getReturnType() instanceof \ReflectionNamedType && 'void' === (string) $method->getReturnType() ? '' : 'return ';
-            $methods[] = "\n    ".ProxyHelper::exportSignature($method, false)."\n".<<<EOPHP
+            $methods[] = "\n    ".ProxyHelper::exportSignature($method, false, $args)."\n".<<<EOPHP
                 {
-                    {$return}\$this->lazyObjectReal->{$method->name}(...\\func_get_args());
+                    {$return}(\$this->lazyObjectState->realInstance ??= (\$this->lazyObjectState->initializer)())->{$method->name}({$args});
                 }
 
             EOPHP;
@@ -60,10 +60,11 @@ class RedisProxiesTest extends TestCase
         $stub = file_get_contents("https://raw.githubusercontent.com/phpredis/phpredis/develop/{$stub}.stub.php");
         $stub = preg_replace('/^class /m', 'return; \0', $stub);
         $stub = preg_replace('/^return; class ([a-zA-Z]++)/m', 'interface \1StubInterface', $stub, 1);
+        $stub = preg_replace('/^    public const .*/m', '', $stub);
         eval(substr($stub, 5));
 
         $proxy = file_get_contents(\dirname(__DIR__, 2)."/Traits/{$class}6Proxy.php");
-        $proxy = substr($proxy, 0, 8 + strpos($proxy, "\n    ];"));
+        $proxy = substr($proxy, 0, 4 + strpos($proxy, '[];'));
         $methods = [];
 
         foreach ((new \ReflectionClass($class.'StubInterface'))->getMethods() as $method) {
@@ -71,9 +72,9 @@ class RedisProxiesTest extends TestCase
                 continue;
             }
             $return = $method->getReturnType() instanceof \ReflectionNamedType && 'void' === (string) $method->getReturnType() ? '' : 'return ';
-            $methods[] = "\n    ".ProxyHelper::exportSignature($method, false)."\n".<<<EOPHP
+            $methods[] = "\n    ".ProxyHelper::exportSignature($method, false, $args)."\n".<<<EOPHP
                 {
-                    {$return}\$this->lazyObjectReal->{$method->name}(...\\func_get_args());
+                    {$return}(\$this->lazyObjectState->realInstance ??= (\$this->lazyObjectState->initializer)())->{$method->name}({$args});
                 }
 
             EOPHP;

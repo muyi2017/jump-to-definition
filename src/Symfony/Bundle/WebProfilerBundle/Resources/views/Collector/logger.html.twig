@@ -131,8 +131,10 @@
             </colgroup>
 
             <thead>
-                <th>Time</th>
-                <th>Message</th>
+                <tr>
+                    <th>Time</th>
+                    <th>Message</th>
+                </tr>
             </thead>
 
             <tbody>
@@ -185,7 +187,7 @@
     <details class="container-compilation-logs">
         <summary>
             <h4>Container Compilation Logs <span class="text-muted">({{ compilerLogTotal }})</span></h4>
-            <p class="text-muted">Log messages generated during the compilation of the service container.</p>
+            <span class="text-muted">Log messages generated during the compilation of the service container.</span>
         </summary>
 
         {% if collector.compilerLogs is empty %}
@@ -253,10 +255,6 @@
         {% if has_trace %}
             {% set trace_id = 'trace-' ~ category ~ '-' ~ log_index %}
             <span><button type="button" class="btn btn-link text-small sf-toggle" data-toggle-selector="#{{ trace_id }}" data-toggle-alt-content="Hide trace">Show trace</button></span>
-
-            <div id="{{ trace_id }}" class="context sf-toggle-content sf-toggle-hidden">
-                {{ profiler_dump(log.context.exception.trace, maxDepth=1) }}
-            </div>
         {% endif %}
 
         {% if has_context %}

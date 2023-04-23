@@ -63,11 +63,22 @@ Mailer
 
  * Deprecate the `OhMySMTP` transport, use `MailPace` instead
 
+Messenger
+--------
+
+ * Deprecate `MessageHandlerInterface` and `MessageSubscriberInterface`, use the `AsMessageHandler` attribute instead
+
 Mime
 ----
 
  * Deprecate `Email::attachPart()`, use `addPart()` instead
  * Deprecate calling `Message::setBody()` without arguments
+
+Notifier
+--------
+
+ * [BC BREAK] The following data providers for `TransportTestCase` are now static: `toStringProvider()`, `supportedMessagesProvider()` and `unsupportedMessagesProvider()`
+ * [BC BREAK] The `TransportTestCase::createTransport()` method is now static
 
 PropertyAccess
 --------------
@@ -75,17 +86,16 @@ PropertyAccess
  * Deprecate calling `PropertyAccessorBuilder::setCacheItemPool()` without arguments
  * Implementing the `PropertyPathInterface` without implementing the `isNullSafe()` method is deprecated
 
-Messenger
---------
-
-* Deprecate `MessageHandlerInterface` and `MessageSubscriberInterface`, use the `AsMessageHandler` attribute instead
-
 Security
 --------
 
  * Add maximum username length enforcement of 4096 characters in `UserBadge` to
    prevent [session storage flooding](https://symfony.com/blog/cve-2016-4423-large-username-storage-in-session)
- * Deprecate the `Symfony\Component\Security\Core\Security` class and service, use `Symfony\Bundle\SecurityBundle\Security\Security` instead
+ * Deprecate the `Symfony\Component\Security\Core\Security` class and service, use `Symfony\Bundle\SecurityBundle\Security` instead
+ * Deprecate the `Symfony\Bundle\SecurityBundle\Security::ACCESS_DENIED_ERROR` property, use `Symfony\Component\Security\Http\SecurityRequestAttributes::ACCESS_DENIED_ERROR` instead
+ * Deprecate the `Symfony\Bundle\SecurityBundle\Security::AUTHENTICATION_ERROR` property, use `Symfony\Component\Security\Http\SecurityRequestAttributes::AUTHENTICATION_ERROR` instead
+ * Deprecate the `Symfony\Bundle\SecurityBundle\Security::LAST_USERNAME` property, use `Symfony\Component\Security\Http\SecurityRequestAttributes::LAST_USERNAME` instead
+ * Deprecate the `Symfony\Bundle\SecurityBundle\Security::MAX_USERNAME_LENGTH` property, use `Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge::MAX_USERNAME_LENGTH` instead
  * Passing empty username or password parameter when using `JsonLoginAuthenticator` is not supported anymore
  * Add `$lifetime` parameter to `LoginLinkHandlerInterface::createLoginLink()`
  * Change the signature of `TokenStorageInterface::setToken()` to `setToken(?TokenInterface $token)`

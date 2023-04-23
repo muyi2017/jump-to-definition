@@ -16,6 +16,7 @@ use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Driver\Middleware as MiddlewareInterface;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\ParameterType;
+use Doctrine\DBAL\Result;
 use Doctrine\DBAL\Statement;
 use Doctrine\DBAL\Types\Types;
 use PHPUnit\Framework\TestCase;
@@ -78,7 +79,7 @@ EOT);
         return $res;
     }
 
-    public function provideExecuteMethod(): array
+    public static function provideExecuteMethod(): array
     {
         return [
             'executeStatement' => [
@@ -156,10 +157,6 @@ EOT;
         $executeMethod($stmt);
 
         // Debug data should not be affected by these changes
-        $product = 'product2';
-        $price = 13.5;
-        $stock = 4;
-
         $debug = $this->debugDataHolder->getData()['default'] ?? [];
         $this->assertCount(2, $debug);
         $this->assertSame('INSERT INTO products(name, price, stock) VALUES (?, ?, ?)', $debug[1]['sql']);
@@ -168,7 +165,7 @@ EOT;
         $this->assertGreaterThan(0, $debug[1]['executionMS']);
     }
 
-    public function provideEndTransactionMethod(): array
+    public static function provideEndTransactionMethod(): array
     {
         return [
             'commit' => [static fn (Connection $conn) => $conn->commit(), '"COMMIT"'],
@@ -208,7 +205,7 @@ EOT;
         $this->assertGreaterThan(0, $debug[6]['executionMS']);
     }
 
-    public function provideExecuteAndEndTransactionMethods(): array
+    public static function provideExecuteAndEndTransactionMethods(): array
     {
         return [
             'commit and exec' => [
@@ -218,6 +215,14 @@ EOT;
             'rollback and query' => [
                 static fn (Connection $conn, string $sql) => $conn->executeQuery($sql),
                 static fn (Connection $conn) => $conn->rollBack(),
+            ],
+            'prepared statement' => [
+                static function (Connection $conn, string $sql): Result {
+                    return $conn->prepare($sql)->executeQuery();
+                },
+                static function (Connection $conn): bool {
+                    return $conn->commit();
+                },
             ],
         ];
     }

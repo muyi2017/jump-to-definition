@@ -551,7 +551,7 @@ class SerializerTest extends TestCase
         $this->assertSame('{"foo":[],"bar":["notempty"],"baz":{"nested":[]},"a":{"nested":[]},"b":[]}', $serializer->serialize($object, 'json'));
     }
 
-    public function provideObjectOrCollectionTests()
+    public static function provideObjectOrCollectionTests()
     {
         $serializer = new Serializer(
             [
@@ -864,6 +864,9 @@ class SerializerTest extends TestCase
                 }
             ],
             "php74FullWithConstructor": {},
+            "php74FullWithTypedConstructor": {
+                "something": "not a float"
+            },
             "dummyMessage": {
             },
             "nestedObject": {
@@ -952,7 +955,7 @@ class SerializerTest extends TestCase
                 ],
                 'path' => 'dateTime',
                 'useMessageForUser' => true,
-                'message' => 'The data is either an empty string or null, you should pass a string that can be parsed with the passed format or a valid DateTime string.',
+                'message' => 'The data is either not an string, an empty string, or null; you should pass a string that can be parsed with the passed format or a valid DateTime string.',
             ],
             [
                 'currentType' => 'null',
@@ -961,7 +964,7 @@ class SerializerTest extends TestCase
                 ],
                 'path' => 'dateTimeImmutable',
                 'useMessageForUser' => true,
-                'message' => 'The data is either an empty string or null, you should pass a string that can be parsed with the passed format or a valid DateTime string.',
+                'message' => 'The data is either not an string, an empty string, or null; you should pass a string that can be parsed with the passed format or a valid DateTime string.',
             ],
             [
                 'currentType' => 'null',
@@ -1016,6 +1019,15 @@ class SerializerTest extends TestCase
                 'path' => 'php74FullWithConstructor',
                 'useMessageForUser' => true,
                 'message' => 'Failed to create object because the class misses the "constructorArgument" property.',
+            ],
+            [
+                'currentType' => 'string',
+                'expectedTypes' => [
+                    'float',
+                ],
+                'path' => 'php74FullWithTypedConstructor.something',
+                'useMessageForUser' => false,
+                'message' => 'The type of the "something" attribute for class "Symfony\Component\Serializer\Tests\Fixtures\Php74FullWithTypedConstructor" must be one of "float" ("string" given).',
             ],
             $classMetadataFactory ?
                 [
@@ -1240,7 +1252,7 @@ class SerializerTest extends TestCase
         }
     }
 
-    public function provideCollectDenormalizationErrors()
+    public static function provideCollectDenormalizationErrors()
     {
         return [
             [null],

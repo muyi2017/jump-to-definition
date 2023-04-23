@@ -140,7 +140,7 @@ class DebugClassLoaderTest extends TestCase
         $this->assertSame($xError, $lastError);
     }
 
-    public function provideDeprecatedSuper(): array
+    public static function provideDeprecatedSuper(): array
     {
         return [
             ['DeprecatedInterfaceClass', 'DeprecatedInterface', 'implements'],
@@ -397,6 +397,10 @@ class DebugClassLoaderTest extends TestCase
             'Method "Symfony\Component\ErrorHandler\Tests\Fixtures\ReturnTypeParent::mixed()" might add "mixed" as a native return type declaration in the future. Do the same in child class "Test\Symfony\Component\ErrorHandler\Tests\ReturnType" now to avoid errors or add an explicit @return annotation to suppress this message.',
             'Method "Symfony\Component\ErrorHandler\Tests\Fixtures\ReturnTypeParent::nullableMixed()" might add "mixed" as a native return type declaration in the future. Do the same in child class "Test\Symfony\Component\ErrorHandler\Tests\ReturnType" now to avoid errors or add an explicit @return annotation to suppress this message.',
             'Method "Symfony\Component\ErrorHandler\Tests\Fixtures\ReturnTypeParent::static()" might add "static" as a native return type declaration in the future. Do the same in child class "Test\Symfony\Component\ErrorHandler\Tests\ReturnType" now to avoid errors or add an explicit @return annotation to suppress this message.',
+            'Method "Symfony\Component\ErrorHandler\Tests\Fixtures\ReturnTypeParent::false()" might add "false" as a native return type declaration in the future. Do the same in child class "Test\Symfony\Component\ErrorHandler\Tests\ReturnType" now to avoid errors or add an explicit @return annotation to suppress this message.',
+            'Method "Symfony\Component\ErrorHandler\Tests\Fixtures\ReturnTypeParent::true()" might add "true" as a native return type declaration in the future. Do the same in child class "Test\Symfony\Component\ErrorHandler\Tests\ReturnType" now to avoid errors or add an explicit @return annotation to suppress this message.',
+            'Method "Symfony\Component\ErrorHandler\Tests\Fixtures\ReturnTypeParent::never()" might add "never" as a native return type declaration in the future. Do the same in child class "Test\Symfony\Component\ErrorHandler\Tests\ReturnType" now to avoid errors or add an explicit @return annotation to suppress this message.',
+            'Method "Symfony\Component\ErrorHandler\Tests\Fixtures\ReturnTypeParent::null()" might add "null" as a native return type declaration in the future. Do the same in child class "Test\Symfony\Component\ErrorHandler\Tests\ReturnType" now to avoid errors or add an explicit @return annotation to suppress this message.',
         ], $deprecations);
     }
 

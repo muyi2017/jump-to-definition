@@ -20,6 +20,7 @@ use phpDocumentor\Reflection\Types\ContextFactory;
 use PhpParser\Parser;
 use PHPStan\PhpDocParser\Parser\PhpDocParser;
 use Psr\Cache\CacheItemPoolInterface;
+use Psr\Clock\ClockInterface as PsrClockInterface;
 use Psr\Container\ContainerInterface as PsrContainerInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Log\LoggerAwareInterface;
@@ -96,9 +97,11 @@ use Symfony\Component\Lock\PersistingStoreInterface;
 use Symfony\Component\Lock\Store\StoreFactory;
 use Symfony\Component\Mailer\Bridge\Amazon\Transport\SesTransportFactory;
 use Symfony\Component\Mailer\Bridge\Google\Transport\GmailTransportFactory;
+use Symfony\Component\Mailer\Bridge\Infobip\Transport\InfobipTransportFactory as InfobipMailerTransportFactory;
 use Symfony\Component\Mailer\Bridge\Mailchimp\Transport\MandrillTransportFactory;
 use Symfony\Component\Mailer\Bridge\Mailgun\Transport\MailgunTransportFactory;
 use Symfony\Component\Mailer\Bridge\Mailjet\Transport\MailjetTransportFactory;
+use Symfony\Component\Mailer\Bridge\MailPace\Transport\MailPaceTransportFactory;
 use Symfony\Component\Mailer\Bridge\OhMySmtp\Transport\OhMySmtpTransportFactory;
 use Symfony\Component\Mailer\Bridge\Postmark\Transport\PostmarkTransportFactory;
 use Symfony\Component\Mailer\Bridge\Sendgrid\Transport\SendgridTransportFactory;
@@ -277,6 +280,7 @@ class FrameworkExtension extends Extension
         if (!ContainerBuilder::willBeAvailable('symfony/clock', ClockInterface::class, ['symfony/framework-bundle'])) {
             $container->removeDefinition('clock');
             $container->removeAlias(ClockInterface::class);
+            $container->removeAlias(PsrClockInterface::class);
         }
 
         $container->registerAliasForArgument('parameter_bag', PsrContainerInterface::class);
@@ -387,7 +391,7 @@ class FrameworkExtension extends Extension
         if ($this->readConfigEnabled('mailer', $container, $config['mailer'])) {
             $this->registerMailerConfiguration($config['mailer'], $container, $loader);
 
-            if (!class_exists(MailerTestCommand::class)) {
+            if (!$this->hasConsole() || !class_exists(MailerTestCommand::class)) {
                 $container->removeDefinition('console.command.mailer_test');
             }
         }
@@ -1176,11 +1180,8 @@ class FrameworkExtension extends Extension
 
         // session handler (the internal callback registered with PHP session management)
         if (null === $config['handler_id']) {
-            // Set the handler class to be null
-            $container->getDefinition('session.storage.factory.native')->replaceArgument(1, null);
-            $container->getDefinition('session.storage.factory.php_bridge')->replaceArgument(0, null);
-
-            $container->setAlias('session.handler', 'session.handler.native_file');
+            $config['save_path'] = null;
+            $container->setAlias('session.handler', 'session.handler.native');
         } else {
             $container->resolveEnvPlaceholders($config['handler_id'], null, $usedEnvs);
 
@@ -1306,9 +1307,8 @@ class FrameworkExtension extends Extension
             $container->removeDefinition('translation.locale_switcher');
         }
 
-        if (ContainerBuilder::willBeAvailable('nikic/php-parser', Parser::class, ['symfony/translation'])
-            && ContainerBuilder::willBeAvailable('symfony/translation', PhpAstExtractor::class, ['symfony/framework-bundle'])
-        ) {
+        // don't use ContainerBuilder::willBeAvailable() as these are not needed in production
+        if (interface_exists(Parser::class) && class_exists(PhpAstExtractor::class)) {
             $container->removeDefinition('translation.extractor.php');
         } else {
             $container->removeDefinition('translation.extractor.php_ast');
@@ -1632,9 +1632,16 @@ class FrameworkExtension extends Extension
 
         $loader->load('annotations.php');
 
+        // registerUniqueLoader exists since doctrine/annotations v1.6
         if (!method_exists(AnnotationRegistry::class, 'registerUniqueLoader')) {
-            $container->getDefinition('annotations.dummy_registry')
-                ->setMethodCalls([['registerLoader', ['class_exists']]]);
+            // registerLoader exists only in doctrine/annotations v1
+            if (method_exists(AnnotationRegistry::class, 'registerLoader')) {
+                $container->getDefinition('annotations.dummy_registry')
+                    ->setMethodCalls([['registerLoader', ['class_exists']]]);
+            } else {
+                // remove the dummy registry when doctrine/annotations v2 is used
+                $container->removeDefinition('annotations.dummy_registry');
+            }
         }
 
         if ('none' === $config['cache']) {
@@ -1766,9 +1773,6 @@ class FrameworkExtension extends Extension
     private function registerSerializerConfiguration(array $config, ContainerBuilder $container, PhpFileLoader $loader)
     {
         $loader->load('serializer.php');
-        if ($container->getParameter('kernel.debug')) {
-            $container->removeDefinition('serializer.mapping.cache_class_metadata_factory');
-        }
 
         $chainLoader = $container->getDefinition('serializer.mapping.chain_loader');
 
@@ -1791,6 +1795,10 @@ class FrameworkExtension extends Extension
 
         $serializerLoaders = [];
         if (isset($config['enable_annotations']) && $config['enable_annotations']) {
+            if ($container->getParameter('kernel.debug')) {
+                $container->removeDefinition('serializer.mapping.cache_class_metadata_factory');
+            }
+
             $annotationLoader = new Definition(
                 AnnotationLoader::class,
                 [new Reference('annotation_reader', ContainerInterface::NULL_ON_INVALID_REFERENCE)]
@@ -1969,7 +1977,7 @@ class FrameworkExtension extends Extension
             throw new LogicException('Messenger support cannot be enabled as the Messenger component is not installed. Try running "composer require symfony/messenger".');
         }
 
-        if (!class_exists(StatsCommand::class)) {
+        if (!$this->hasConsole() || !class_exists(StatsCommand::class)) {
             $container->removeDefinition('console.command.messenger_stats');
         }
 
@@ -2450,9 +2458,10 @@ class FrameworkExtension extends Extension
 
         $classToServices = [
             GmailTransportFactory::class => 'mailer.transport_factory.gmail',
-            InfobipTransportFactory::class => 'mailer.transport_factory.infobip',
+            InfobipMailerTransportFactory::class => 'mailer.transport_factory.infobip',
             MailgunTransportFactory::class => 'mailer.transport_factory.mailgun',
             MailjetTransportFactory::class => 'mailer.transport_factory.mailjet',
+            MailPaceTransportFactory::class => 'mailer.transport_factory.mailpace',
             MandrillTransportFactory::class => 'mailer.transport_factory.mailchimp',
             OhMySmtpTransportFactory::class => 'mailer.transport_factory.ohmysmtp',
             PostmarkTransportFactory::class => 'mailer.transport_factory.postmark',
@@ -2609,7 +2618,7 @@ class FrameworkExtension extends Extension
             }
         }
 
-        if (ContainerBuilder::willBeAvailable('symfony/mercure-notifier', MercureTransportFactory::class, $parentPackages) && ContainerBuilder::willBeAvailable('symfony/mercure-bundle', MercureBundle::class, $parentPackages)) {
+        if (ContainerBuilder::willBeAvailable('symfony/mercure-notifier', MercureTransportFactory::class, $parentPackages) && ContainerBuilder::willBeAvailable('symfony/mercure-bundle', MercureBundle::class, $parentPackages) && \in_array(MercureBundle::class, $container->getParameter('kernel.bundles'), true)) {
             $container->getDefinition($classToServices[MercureTransportFactory::class])
                 ->replaceArgument('$registry', new Reference(HubRegistry::class));
         } elseif (ContainerBuilder::willBeAvailable('symfony/mercure-notifier', MercureTransportFactory::class, $parentPackages)) {
@@ -2785,10 +2794,14 @@ class FrameworkExtension extends Extension
 
             // Settings
             $def->addMethodCall('forceHttpsUrls', [$sanitizerConfig['force_https_urls']], true);
-            $def->addMethodCall('allowLinkSchemes', [$sanitizerConfig['allowed_link_schemes']], true);
+            if ($sanitizerConfig['allowed_link_schemes']) {
+                $def->addMethodCall('allowLinkSchemes', [$sanitizerConfig['allowed_link_schemes']], true);
+            }
             $def->addMethodCall('allowLinkHosts', [$sanitizerConfig['allowed_link_hosts']], true);
             $def->addMethodCall('allowRelativeLinks', [$sanitizerConfig['allow_relative_links']], true);
-            $def->addMethodCall('allowMediaSchemes', [$sanitizerConfig['allowed_media_schemes']], true);
+            if ($sanitizerConfig['allowed_media_schemes']) {
+                $def->addMethodCall('allowMediaSchemes', [$sanitizerConfig['allowed_media_schemes']], true);
+            }
             $def->addMethodCall('allowMediaHosts', [$sanitizerConfig['allowed_media_hosts']], true);
             $def->addMethodCall('allowRelativeMedias', [$sanitizerConfig['allow_relative_medias']], true);
 

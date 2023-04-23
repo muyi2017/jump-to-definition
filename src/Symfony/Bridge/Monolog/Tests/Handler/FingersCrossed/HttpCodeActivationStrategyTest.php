@@ -56,23 +56,23 @@ class HttpCodeActivationStrategyTest extends TestCase
         self::assertEquals($expected, $strategy->isHandlerActivated($record));
     }
 
-    public function isActivatedProvider(): array
+    public static function isActivatedProvider(): array
     {
         return [
             ['/test',  RecordFactory::create(Logger::ERROR), true],
-            ['/400',   RecordFactory::create(Logger::ERROR, context: $this->getContextException(400)), true],
-            ['/400/a', RecordFactory::create(Logger::ERROR, context: $this->getContextException(400)), false],
-            ['/400/b', RecordFactory::create(Logger::ERROR, context: $this->getContextException(400)), false],
-            ['/400/c', RecordFactory::create(Logger::ERROR, context: $this->getContextException(400)), true],
-            ['/401',   RecordFactory::create(Logger::ERROR, context: $this->getContextException(401)), true],
-            ['/403',   RecordFactory::create(Logger::ERROR, context: $this->getContextException(403)), false],
-            ['/404',   RecordFactory::create(Logger::ERROR, context: $this->getContextException(404)), false],
-            ['/405',   RecordFactory::create(Logger::ERROR, context: $this->getContextException(405)), false],
-            ['/500',   RecordFactory::create(Logger::ERROR, context: $this->getContextException(500)), true],
+            ['/400',   RecordFactory::create(Logger::ERROR, context: self::getContextException(400)), true],
+            ['/400/a', RecordFactory::create(Logger::ERROR, context: self::getContextException(400)), false],
+            ['/400/b', RecordFactory::create(Logger::ERROR, context: self::getContextException(400)), false],
+            ['/400/c', RecordFactory::create(Logger::ERROR, context: self::getContextException(400)), true],
+            ['/401',   RecordFactory::create(Logger::ERROR, context: self::getContextException(401)), true],
+            ['/403',   RecordFactory::create(Logger::ERROR, context: self::getContextException(403)), false],
+            ['/404',   RecordFactory::create(Logger::ERROR, context: self::getContextException(404)), false],
+            ['/405',   RecordFactory::create(Logger::ERROR, context: self::getContextException(405)), false],
+            ['/500',   RecordFactory::create(Logger::ERROR, context: self::getContextException(500)), true],
         ];
     }
 
-    private function getContextException(int $code): array
+    private static function getContextException(int $code): array
     {
         return ['exception' => new HttpException($code)];
     }

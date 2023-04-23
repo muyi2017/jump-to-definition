@@ -18,6 +18,7 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Command\HelpCommand;
 use Symfony\Component\Console\Command\LazyCommand;
 use Symfony\Component\Console\Command\SignalableCommandInterface;
+use Symfony\Component\Console\CommandLoader\CommandLoaderInterface;
 use Symfony\Component\Console\CommandLoader\FactoryCommandLoader;
 use Symfony\Component\Console\DependencyInjection\AddConsoleCommandPass;
 use Symfony\Component\Console\Event\ConsoleCommandEvent;
@@ -65,6 +66,16 @@ class ApplicationTest extends TestCase
         putenv('SHELL_VERBOSITY');
         unset($_ENV['SHELL_VERBOSITY']);
         unset($_SERVER['SHELL_VERBOSITY']);
+
+        if (\function_exists('pcntl_signal')) {
+            // We reset all signals to their default value to avoid side effects
+            for ($i = 1; $i <= 15; ++$i) {
+                if (9 === $i) {
+                    continue;
+                }
+                pcntl_signal($i, SIG_DFL);
+            }
+        }
     }
 
     public static function setUpBeforeClass(): void
@@ -431,7 +442,7 @@ class ApplicationTest extends TestCase
         $application->find($abbreviation);
     }
 
-    public function provideAmbiguousAbbreviations()
+    public static function provideAmbiguousAbbreviations()
     {
         return [
             ['f', 'Command "f" is not defined.'],
@@ -508,15 +519,7 @@ class ApplicationTest extends TestCase
         $application->setAutoExit(false);
         $tester = new ApplicationTester($application);
         $tester->run(['command' => 'foos:bar1'], ['decorated' => false]);
-        $this->assertSame('
-                                                          
-  There are no commands defined in the "foos" namespace.  
-                                                          
-  Did you mean this?                                      
-      foo                                                 
-                                                          
-
-', $tester->getDisplay(true));
+        $this->assertStringEqualsFile(self::$fixturesPath.'/application.dont_run_alternative_namespace_name.txt', $tester->getDisplay(true));
     }
 
     public function testCanRunAlternativeCommandName()
@@ -547,7 +550,7 @@ class ApplicationTest extends TestCase
         $this->assertStringContainsString('Do you want to run "foo" instead?  (yes/no) [no]:', $display);
     }
 
-    public function provideInvalidCommandNamesSingle()
+    public static function provideInvalidCommandNamesSingle()
     {
         return [
             ['foo3:barr'],
@@ -730,7 +733,7 @@ class ApplicationTest extends TestCase
 
     public function testFindNamespaceDoesNotFailOnDeepSimilarNamespaces()
     {
-        $application = $this->getMockBuilder(Application::class)->setMethods(['getNamespaces'])->getMock();
+        $application = $this->getMockBuilder(Application::class)->onlyMethods(['getNamespaces'])->getMock();
         $application->expects($this->once())
             ->method('getNamespaces')
             ->willReturn(['foo:sublong', 'bar:sub']);
@@ -890,7 +893,7 @@ class ApplicationTest extends TestCase
 
     public function testRenderExceptionLineBreaks()
     {
-        $application = $this->getMockBuilder(Application::class)->setMethods(['getTerminalWidth'])->getMock();
+        $application = $this->getMockBuilder(Application::class)->addMethods(['getTerminalWidth'])->getMock();
         $application->setAutoExit(false);
         $application->expects($this->any())
             ->method('getTerminalWidth')
@@ -1117,7 +1120,7 @@ class ApplicationTest extends TestCase
     {
         $exception = new \Exception('', 4);
 
-        $application = $this->getMockBuilder(Application::class)->setMethods(['doRun'])->getMock();
+        $application = $this->getMockBuilder(Application::class)->onlyMethods(['doRun'])->getMock();
         $application->setAutoExit(false);
         $application->expects($this->once())
             ->method('doRun')
@@ -1156,7 +1159,7 @@ class ApplicationTest extends TestCase
     {
         $exception = new \Exception('', 0);
 
-        $application = $this->getMockBuilder(Application::class)->setMethods(['doRun'])->getMock();
+        $application = $this->getMockBuilder(Application::class)->onlyMethods(['doRun'])->getMock();
         $application->setAutoExit(false);
         $application->expects($this->once())
             ->method('doRun')
@@ -1199,7 +1202,7 @@ class ApplicationTest extends TestCase
     {
         $exception = new \Exception('', $exceptionCode);
 
-        $application = $this->getMockBuilder(Application::class)->setMethods(['doRun'])->getMock();
+        $application = $this->getMockBuilder(Application::class)->onlyMethods(['doRun'])->getMock();
         $application->setAutoExit(false);
         $application->expects($this->once())
             ->method('doRun')
@@ -1255,7 +1258,7 @@ class ApplicationTest extends TestCase
         $application->run($input, $output);
     }
 
-    public function getAddingAlreadySetDefinitionElementData()
+    public static function getAddingAlreadySetDefinitionElementData()
     {
         return [
             [new InputArgument('command', InputArgument::REQUIRED)],
@@ -1464,6 +1467,25 @@ class ApplicationTest extends TestCase
         } catch (\Error $e) {
             $this->assertSame('dymerr', $e->getMessage());
         }
+    }
+
+    public function testRunWithFindError()
+    {
+        $this->expectException(\Error::class);
+        $this->expectExceptionMessage('Find exception');
+
+        $application = new Application();
+        $application->setAutoExit(false);
+        $application->setCatchExceptions(false);
+
+        // Throws an exception when find fails
+        $commandLoader = $this->createMock(CommandLoaderInterface::class);
+        $commandLoader->method('getNames')->willThrowException(new \Error('Find exception'));
+        $application->setCommandLoader($commandLoader);
+
+        // The exception should not be ignored
+        $tester = new ApplicationTester($application);
+        $tester->run(['command' => 'foo']);
     }
 
     public function testRunAllowsErrorListenersToSilenceTheException()
@@ -1961,6 +1983,10 @@ class ApplicationTest extends TestCase
      */
     public function testSetSignalsToDispatchEvent()
     {
+        if (!\defined('SIGUSR1')) {
+            $this->markTestSkipped('SIGUSR1 not available');
+        }
+
         $command = new BaseSignableCommand();
 
         $subscriber = new SignalEventSubscriber();
@@ -1968,19 +1994,46 @@ class ApplicationTest extends TestCase
         $dispatcher = new EventDispatcher();
         $dispatcher->addSubscriber($subscriber);
 
+        // Since there is no signal handler, and by default PHP will stop even
+        // on SIGUSR1, we need to register a blank handler to avoid the process
+        // being stopped.
+        $blankHandlerSignaled = false;
+        pcntl_signal(\SIGUSR1, function () use (&$blankHandlerSignaled) {
+            $blankHandlerSignaled = true;
+        });
+
         $application = $this->createSignalableApplication($command, $dispatcher);
         $application->setSignalsToDispatchEvent(\SIGUSR2);
         $this->assertSame(0, $application->run(new ArrayInput(['signal'])));
         $this->assertFalse($subscriber->signaled);
+        $this->assertTrue($blankHandlerSignaled);
+
+        // We reset the blank handler to false to make sure it is called again
+        $blankHandlerSignaled = false;
 
         $application = $this->createSignalableApplication($command, $dispatcher);
         $application->setSignalsToDispatchEvent(\SIGUSR1);
         $this->assertSame(1, $application->run(new ArrayInput(['signal'])));
         $this->assertTrue($subscriber->signaled);
+        $this->assertTrue($blankHandlerSignaled);
+
+        // And now we test without the blank handler
+        $blankHandlerSignaled = false;
+        pcntl_signal(\SIGUSR1, SIG_DFL);
+
+        $application = $this->createSignalableApplication($command, $dispatcher);
+        $application->setSignalsToDispatchEvent(\SIGUSR1);
+        $this->assertSame(1, $application->run(new ArrayInput(['signal'])));
+        $this->assertTrue($subscriber->signaled);
+        $this->assertFalse($blankHandlerSignaled);
     }
 
     public function testSignalableCommandInterfaceWithoutSignals()
     {
+        if (!\defined('SIGUSR1')) {
+            $this->markTestSkipped('SIGUSR1 not available');
+        }
+
         $command = new SignableCommand(false);
 
         $dispatcher = new EventDispatcher();
@@ -1989,6 +2042,25 @@ class ApplicationTest extends TestCase
         $application->setDispatcher($dispatcher);
         $application->add($command);
         $this->assertSame(0, $application->run(new ArrayInput(['signal'])));
+    }
+
+    public function testSignalableCommandHandlerCalledAfterEventListener()
+    {
+        if (!\defined('SIGUSR1')) {
+            $this->markTestSkipped('SIGUSR1 not available');
+        }
+
+        $command = new SignableCommand();
+
+        $subscriber = new SignalEventSubscriber();
+
+        $dispatcher = new EventDispatcher();
+        $dispatcher->addSubscriber($subscriber);
+
+        $application = $this->createSignalableApplication($command, $dispatcher);
+        $application->setSignalsToDispatchEvent(\SIGUSR1);
+        $this->assertSame(1, $application->run(new ArrayInput(['signal'])));
+        $this->assertSame([SignalEventSubscriber::class, SignableCommand::class], $command->signalHandlers);
     }
 
     /**
@@ -2090,6 +2162,7 @@ class DisabledCommand extends Command
 class BaseSignableCommand extends Command
 {
     public $signaled = false;
+    public $signalHandlers = [];
     public $loop = 1000;
     private $emitsSignal;
 
@@ -2127,6 +2200,7 @@ class SignableCommand extends BaseSignableCommand implements SignalableCommandIn
     public function handleSignal(int $signal): void
     {
         $this->signaled = true;
+        $this->signalHandlers[] = __CLASS__;
     }
 }
 
@@ -2138,6 +2212,7 @@ class SignalEventSubscriber implements EventSubscriberInterface
     {
         $this->signaled = true;
         $event->getCommand()->signaled = true;
+        $event->getCommand()->signalHandlers[] = __CLASS__;
     }
 
     public static function getSubscribedEvents(): array

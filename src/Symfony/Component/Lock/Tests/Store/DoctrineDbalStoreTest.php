@@ -26,7 +26,7 @@ class_exists(\Doctrine\DBAL\Platforms\PostgreSqlPlatform::class);
  *
  * @requires extension pdo_sqlite
  */
-class DoctrineDbalStoreTest extends AbstractStoreTest
+class DoctrineDbalStoreTest extends AbstractStoreTestCase
 {
     use ExpiringStoreTestTrait;
 
@@ -79,7 +79,7 @@ class DoctrineDbalStoreTest extends AbstractStoreTest
         }
     }
 
-    public function provideDsn()
+    public static function provideDsn()
     {
         $dbFile = tempnam(sys_get_temp_dir(), 'sf_sqlite_cache');
         yield ['sqlite://localhost/'.$dbFile.'1', $dbFile.'1'];
@@ -93,22 +93,27 @@ class DoctrineDbalStoreTest extends AbstractStoreTest
     public function testCreatesTableInTransaction(string $platform)
     {
         $conn = $this->createMock(Connection::class);
+
+        $series = [
+            [$this->stringContains('INSERT INTO'), $this->createMock(TableNotFoundException::class)],
+            [$this->matches('create sql stmt'), 1],
+            [$this->stringContains('INSERT INTO'), 1],
+        ];
+
         $conn->expects($this->atLeast(3))
             ->method('executeStatement')
-            ->withConsecutive(
-                [$this->stringContains('INSERT INTO')],
-                [$this->matches('create sql stmt')],
-                [$this->stringContains('INSERT INTO')]
-            )
-            ->will(
-                $this->onConsecutiveCalls(
-                    $this->throwException(
-                        $this->createMock(TableNotFoundException::class)
-                    ),
-                    1,
-                    1
-                )
-            );
+            ->willReturnCallback(function ($sql) use (&$series) {
+                if ([$constraint, $return] = array_shift($series)) {
+                    $constraint->evaluate($sql);
+                }
+
+                if ($return instanceof \Exception) {
+                    throw $return;
+                }
+
+                return $return ?? 1;
+            })
+        ;
 
         $conn->method('isTransactionActive')
             ->willReturn(true);
@@ -127,7 +132,7 @@ class DoctrineDbalStoreTest extends AbstractStoreTest
         $store->save($key);
     }
 
-    public function providePlatforms()
+    public static function providePlatforms()
     {
         yield [\Doctrine\DBAL\Platforms\PostgreSQLPlatform::class];
         yield [\Doctrine\DBAL\Platforms\PostgreSQL94Platform::class];
@@ -139,21 +144,26 @@ class DoctrineDbalStoreTest extends AbstractStoreTest
     public function testTableCreationInTransactionNotSupported()
     {
         $conn = $this->createMock(Connection::class);
+
+        $series = [
+            [$this->stringContains('INSERT INTO'), $this->createMock(TableNotFoundException::class)],
+            [$this->stringContains('INSERT INTO'), 1],
+        ];
+
         $conn->expects($this->atLeast(2))
             ->method('executeStatement')
-            ->withConsecutive(
-                [$this->stringContains('INSERT INTO')],
-                [$this->stringContains('INSERT INTO')]
-            )
-            ->will(
-                $this->onConsecutiveCalls(
-                    $this->throwException(
-                        $this->createMock(TableNotFoundException::class)
-                    ),
-                    1,
-                    1
-                )
-            );
+            ->willReturnCallback(function ($sql) use (&$series) {
+                if ([$constraint, $return] = array_shift($series)) {
+                    $constraint->evaluate($sql);
+                }
+
+                if ($return instanceof \Exception) {
+                    throw $return;
+                }
+
+                return $return ?? 1;
+            })
+        ;
 
         $conn->method('isTransactionActive')
             ->willReturn(true);
@@ -175,22 +185,27 @@ class DoctrineDbalStoreTest extends AbstractStoreTest
     public function testCreatesTableOutsideTransaction()
     {
         $conn = $this->createMock(Connection::class);
+
+        $series = [
+            [$this->stringContains('INSERT INTO'), $this->createMock(TableNotFoundException::class)],
+            [$this->matches('create sql stmt'), 1],
+            [$this->stringContains('INSERT INTO'), 1],
+        ];
+
         $conn->expects($this->atLeast(3))
             ->method('executeStatement')
-            ->withConsecutive(
-                [$this->stringContains('INSERT INTO')],
-                [$this->matches('create sql stmt')],
-                [$this->stringContains('INSERT INTO')]
-            )
-            ->will(
-                $this->onConsecutiveCalls(
-                    $this->throwException(
-                        $this->createMock(TableNotFoundException::class)
-                    ),
-                    1,
-                    1
-                )
-            );
+            ->willReturnCallback(function ($sql) use (&$series) {
+                if ([$constraint, $return] = array_shift($series)) {
+                    $constraint->evaluate($sql);
+                }
+
+                if ($return instanceof \Exception) {
+                    throw $return;
+                }
+
+                return $return ?? 1;
+            })
+        ;
 
         $conn->method('isTransactionActive')
             ->willReturn(false);

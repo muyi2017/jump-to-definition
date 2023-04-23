@@ -20,7 +20,7 @@ use Symfony\Component\Validator\Tests\Fixtures\ToString;
 
 class ExpressionValidatorTest extends ConstraintValidatorTestCase
 {
-    protected function createValidator()
+    protected function createValidator(): ExpressionValidator
     {
         return new ExpressionValidator();
     }

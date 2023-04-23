@@ -28,7 +28,7 @@ use Twig\Loader\FilesystemLoader;
  *
  * @author Romain Monteil <monteil.romain@gmail.com>
  */
-class FormExtensionBootstrap5LayoutTest extends AbstractBootstrap5LayoutTest
+class FormExtensionBootstrap5LayoutTest extends AbstractBootstrap5LayoutTestCase
 {
     use RuntimeLoaderProvider;
 
@@ -104,7 +104,7 @@ class FormExtensionBootstrap5LayoutTest extends AbstractBootstrap5LayoutTest
             ->createView();
 
         self::assertSame(<<<'HTML'
-<div class="input-group"><span class="input-group-text">&euro; </span><input type="text" id="name" name="name" required="required" class="form-control" /></div>
+<div class="input-group "><span class="input-group-text">&euro; </span><input type="text" id="name" name="name" required="required" class="form-control" /></div>
 HTML
             , trim($this->renderWidget($view)));
     }

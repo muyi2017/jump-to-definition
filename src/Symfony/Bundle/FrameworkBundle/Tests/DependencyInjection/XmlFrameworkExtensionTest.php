@@ -14,8 +14,9 @@ namespace Symfony\Bundle\FrameworkBundle\Tests\DependencyInjection;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\XmlFileLoader;
+use Symfony\Component\RateLimiter\Policy\SlidingWindowLimiter;
 
-class XmlFrameworkExtensionTest extends FrameworkExtensionTest
+class XmlFrameworkExtensionTest extends FrameworkExtensionTestCase
 {
     protected function loadFromFile(ContainerBuilder $container, $file)
     {
@@ -31,5 +32,46 @@ class XmlFrameworkExtensionTest extends FrameworkExtensionTest
     public function testMessengerMiddlewareFactoryErroneousFormat()
     {
         $this->markTestSkipped('XML configuration will not allow erroneous format.');
+    }
+
+    public function testLegacyExceptionsConfig()
+    {
+        $container = $this->createContainerFromFile('exceptions_legacy');
+
+        $configuration = $container->getDefinition('exception_listener')->getArgument(3);
+
+        $this->assertSame([
+            \Symfony\Component\HttpKernel\Exception\BadRequestHttpException::class,
+            \Symfony\Component\HttpKernel\Exception\NotFoundHttpException::class,
+            \Symfony\Component\HttpKernel\Exception\ConflictHttpException::class,
+            \Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException::class,
+        ], array_keys($configuration));
+
+        $this->assertEqualsCanonicalizing([
+            'log_level' => 'info',
+            'status_code' => 422,
+        ], $configuration[\Symfony\Component\HttpKernel\Exception\BadRequestHttpException::class]);
+
+        $this->assertEqualsCanonicalizing([
+            'log_level' => 'info',
+            'status_code' => null,
+        ], $configuration[\Symfony\Component\HttpKernel\Exception\NotFoundHttpException::class]);
+
+        $this->assertEqualsCanonicalizing([
+            'log_level' => 'info',
+            'status_code' => null,
+        ], $configuration[\Symfony\Component\HttpKernel\Exception\ConflictHttpException::class]);
+
+        $this->assertEqualsCanonicalizing([
+            'log_level' => null,
+            'status_code' => 500,
+        ], $configuration[\Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException::class]);
+    }
+
+    public function testRateLimiter()
+    {
+        $container = $this->createContainerFromFile('rate_limiter');
+
+        $this->assertTrue($container->hasDefinition('limiter.sliding_window'));
     }
 }

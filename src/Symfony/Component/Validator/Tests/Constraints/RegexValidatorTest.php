@@ -18,7 +18,7 @@ use Symfony\Component\Validator\Test\ConstraintValidatorTestCase;
 
 class RegexValidatorTest extends ConstraintValidatorTestCase
 {
-    protected function createValidator()
+    protected function createValidator(): RegexValidator
     {
         return new RegexValidator();
     }
@@ -76,7 +76,7 @@ class RegexValidatorTest extends ConstraintValidatorTestCase
         $this->assertNoViolation();
     }
 
-    public function getValidValues()
+    public static function getValidValues()
     {
         return [
             [0],
@@ -92,7 +92,7 @@ class RegexValidatorTest extends ConstraintValidatorTestCase
         ];
     }
 
-    public function getValidValuesWithWhitespaces()
+    public static function getValidValuesWithWhitespaces()
     {
         return [
             ["\x207"],
@@ -137,7 +137,7 @@ class RegexValidatorTest extends ConstraintValidatorTestCase
             ->assertRaised();
     }
 
-    public function getInvalidValues()
+    public static function getInvalidValues()
     {
         return [
             ['abcd'],

@@ -34,7 +34,7 @@ class DoctrineExtensionTest extends TestCase
 
         $this->extension = $this
             ->getMockBuilder(AbstractDoctrineExtension::class)
-            ->setMethods([
+            ->onlyMethods([
                 'getMappingResourceConfigDirectory',
                 'getObjectManagerElementName',
                 'getMappingObjectDefaultName',
@@ -83,7 +83,7 @@ class DoctrineExtensionTest extends TestCase
         $method->invoke($this->extension, $emConfigs, $bundles);
     }
 
-    public function getAutomappingData()
+    public static function getAutomappingData()
     {
         return [
             [
@@ -194,7 +194,7 @@ class DoctrineExtensionTest extends TestCase
         $this->assertSame($mappingType, 'attribute');
     }
 
-    public function providerBasicDrivers()
+    public static function providerBasicDrivers()
     {
         return [
             ['doctrine.orm.cache.apc.class',       ['type' => 'apc']],
@@ -273,9 +273,10 @@ class DoctrineExtensionTest extends TestCase
         $this->invokeLoadCacheDriver($objectManager, $container, $cacheName);
     }
 
-    public function providerBundles()
+    public static function providerBundles()
     {
         yield ['AnnotationsBundle', 'annotation', '/Entity'];
+        yield ['AnnotationsOneLineBundle', 'annotation', '/Entity'];
         yield ['FullEmbeddableAnnotationsBundle', 'annotation', '/Entity'];
         yield ['AttributesBundle', 'attribute', '/Entity'];
         yield ['FullEmbeddableAttributesBundle', 'attribute', '/Entity'];

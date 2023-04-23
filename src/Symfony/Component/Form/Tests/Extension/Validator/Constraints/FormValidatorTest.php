@@ -714,7 +714,7 @@ class FormValidatorTest extends ConstraintValidatorTestCase
         $this->assertSame($constraint, $context->getViolations()->get(0)->getConstraint());
     }
 
-    protected function createValidator()
+    protected function createValidator(): FormValidator
     {
         return new FormValidator();
     }

@@ -34,6 +34,7 @@ class LanguagesTest extends ResourceBundleTestCase
         'afh',
         'agq',
         'ain',
+        'ajp',
         'ak',
         'akk',
         'akz',
@@ -670,6 +671,7 @@ class LanguagesTest extends ResourceBundleTestCase
         'afr',
         'agq',
         'ain',
+        'ajp',
         'aka',
         'akk',
         'akz',
@@ -1742,7 +1744,7 @@ class LanguagesTest extends ResourceBundleTestCase
         }
     }
 
-    public function provideLanguagesWithAlpha3Equivalent()
+    public static function provideLanguagesWithAlpha3Equivalent()
     {
         return array_map(
             function ($value) { return [$value]; },
@@ -1758,7 +1760,7 @@ class LanguagesTest extends ResourceBundleTestCase
         $this->assertSame(self::ALPHA2_TO_ALPHA3[$language], Languages::getAlpha3Code($language));
     }
 
-    public function provideLanguagesWithoutAlpha3Equivalent()
+    public static function provideLanguagesWithoutAlpha3Equivalent()
     {
         return array_map(
             function ($value) { return [$value]; },
@@ -1792,7 +1794,7 @@ class LanguagesTest extends ResourceBundleTestCase
         $this->assertSame(self::ALPHA3_CODES, Languages::getAlpha3Codes());
     }
 
-    public function provideLanguagesWithAlpha2Equivalent()
+    public static function provideLanguagesWithAlpha2Equivalent()
     {
         return array_map(
             function ($value) { return [$value]; },
@@ -1808,7 +1810,7 @@ class LanguagesTest extends ResourceBundleTestCase
         $this->assertSame(self::ALPHA3_TO_ALPHA2[$language], Languages::getAlpha2Code($language));
     }
 
-    public function provideLanguagesWithoutAlpha2Equivalent()
+    public static function provideLanguagesWithoutAlpha2Equivalent()
     {
         return array_map(
             function ($value) { return [$value]; },

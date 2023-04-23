@@ -29,6 +29,7 @@ use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 use Symfony\Component\Serializer\Serializer;
 use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Serializer\Tests\Fixtures\Annotations\GroupDummy;
+use Symfony\Component\Serializer\Tests\Fixtures\Attributes\ClassWithIgnoreAttribute;
 use Symfony\Component\Serializer\Tests\Fixtures\CircularReferenceDummy;
 use Symfony\Component\Serializer\Tests\Fixtures\SiblingHolder;
 use Symfony\Component\Serializer\Tests\Normalizer\Features\CacheableObjectAttributesTestTrait;
@@ -430,6 +431,11 @@ class GetSetMethodNormalizerTest extends TestCase
         $this->assertFalse($this->normalizer->supportsNormalization(new ObjectWithJustStaticSetterDummy()));
     }
 
+    public function testNotIgnoredMethodSupport()
+    {
+        $this->assertFalse($this->normalizer->supportsNormalization(new ClassWithIgnoreAttribute()));
+    }
+
     public function testPrivateSetter()
     {
         $obj = $this->normalizer->denormalize(['foo' => 'foobar'], ObjectWithPrivateSetterDummy::class);
@@ -449,6 +455,22 @@ class GetSetMethodNormalizerTest extends TestCase
 
         $this->assertEquals(
             ['foo' => true],
+            $this->normalizer->normalize($obj, 'any')
+        );
+    }
+
+    public function testCallMagicMethodDenormalize()
+    {
+        $obj = $this->normalizer->denormalize(['active' => true], ObjectWithMagicMethod::class);
+        $this->assertTrue($obj->isActive());
+    }
+
+    public function testCallMagicMethodNormalize()
+    {
+        $obj = new ObjectWithMagicMethod();
+
+        $this->assertSame(
+            ['active' => true],
             $this->normalizer->normalize($obj, 'any')
         );
     }
@@ -720,5 +742,20 @@ class ObjectWithHasGetterDummy
     public function hasFoo()
     {
         return $this->foo;
+    }
+}
+
+class ObjectWithMagicMethod
+{
+    private $active = true;
+
+    public function isActive()
+    {
+        return $this->active;
+    }
+
+    public function __call($key, $value)
+    {
+        throw new \RuntimeException('__call should not be called. Called with: '.$key);
     }
 }

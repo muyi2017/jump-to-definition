@@ -32,6 +32,9 @@ class Connection
         'x-message-ttl',
     ];
 
+    /**
+     * @see https://github.com/php-amqp/php-amqp/blob/master/amqp_connection_resource.h
+     */
     private const AVAILABLE_OPTIONS = [
         'host',
         'port',
@@ -52,6 +55,7 @@ class Connection
         'write_timeout',
         'confirm_timeout',
         'connect_timeout',
+        'rpc_timeout',
         'cacert',
         'cert',
         'key',
@@ -389,7 +393,7 @@ class Connection
             // delete the delay queue 10 seconds after the message expires
             // publishing another message redeclares the queue which renews the lease
             'x-expires' => $delay + 10000,
-            // message should be broadcasted to all consumers during delay, but to only one queue during retry
+            // message should be broadcast to all consumers during delay, but to only one queue during retry
             // empty name is default direct exchange
             'x-dead-letter-exchange' => $isRetryAttempt ? '' : $this->exchangeOptions['name'],
             // after being released from to DLX, make sure the original routing key will be used

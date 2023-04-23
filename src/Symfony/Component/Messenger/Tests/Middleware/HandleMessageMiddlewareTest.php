@@ -68,18 +68,30 @@ class HandleMessageMiddlewareTest extends MiddlewareTestCase
         $this->assertEquals($expectedStamps, $envelope->all(HandledStamp::class));
     }
 
-    public function itAddsHandledStampsProvider(): iterable
+    public static function itAddsHandledStampsProvider(): iterable
     {
-        $first = $this->createPartialMock(HandleMessageMiddlewareTestCallable::class, ['__invoke']);
-        $first->method('__invoke')->willReturn('first result');
+        $first = new class() extends HandleMessageMiddlewareTestCallable {
+            public function __invoke()
+            {
+                return 'first result';
+            }
+        };
         $firstClass = $first::class;
 
-        $second = $this->createPartialMock(HandleMessageMiddlewareTestCallable::class, ['__invoke']);
-        $second->method('__invoke')->willReturn(null);
+        $second = new class() extends HandleMessageMiddlewareTestCallable {
+            public function __invoke()
+            {
+                return null;
+            }
+        };
         $secondClass = $second::class;
 
-        $failing = $this->createPartialMock(HandleMessageMiddlewareTestCallable::class, ['__invoke']);
-        $failing->method('__invoke')->will($this->throwException(new \Exception('handler failed.')));
+        $failing = new class() extends HandleMessageMiddlewareTestCallable {
+            public function __invoke()
+            {
+                throw new \Exception('handler failed.');
+            }
+        };
 
         yield 'A stamp is added' => [
             [$first],
@@ -128,6 +140,24 @@ class HandleMessageMiddlewareTest extends MiddlewareTestCase
         $middleware = new HandleMessageMiddleware(new HandlersLocator([]));
 
         $middleware->handle(new Envelope(new DummyMessage('Hey')), new StackMiddleware());
+    }
+
+    public function testMessageAlreadyHandled()
+    {
+        $handler = $this->createPartialMock(HandleMessageMiddlewareTestCallable::class, ['__invoke']);
+
+        $middleware = new HandleMessageMiddleware(new HandlersLocator([
+            DummyMessage::class => [$handler],
+        ]));
+
+        $envelope = new Envelope(new DummyMessage('Hey'));
+
+        $envelope = $middleware->handle($envelope, $this->getStackMock());
+        $handledStamp = $envelope->all(HandledStamp::class);
+
+        $envelope = $middleware->handle($envelope, $this->getStackMock());
+
+        $this->assertSame($envelope->all(HandledStamp::class), $handledStamp);
     }
 
     public function testAllowNoHandlers()

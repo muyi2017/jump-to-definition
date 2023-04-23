@@ -69,7 +69,7 @@ class ConfigDebugCommandTest extends AbstractWebTestCase
         $this->assertStringContainsString('locale: en', $tester->getDisplay());
         $this->assertStringContainsString('secret: test', $tester->getDisplay());
         $this->assertStringContainsString('cookie_httponly: true', $tester->getDisplay());
-        $this->assertStringContainsString('ide: null', $tester->getDisplay());
+        $this->assertStringContainsString('ide: '.($_ENV['SYMFONY_IDE'] ?? $_SERVER['SYMFONY_IDE'] ?? 'null'), $tester->getDisplay());
     }
 
     public function testDefaultParameterValueIsResolvedIfConfigIsExisting()
@@ -150,7 +150,7 @@ class ConfigDebugCommandTest extends AbstractWebTestCase
         }
     }
 
-    public function provideCompletionSuggestions(): \Generator
+    public static function provideCompletionSuggestions(): \Generator
     {
         yield 'name' => [[''], ['default_config_test', 'extension_without_config_test', 'framework', 'test']];
 

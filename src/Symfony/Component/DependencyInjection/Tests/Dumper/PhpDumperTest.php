@@ -281,9 +281,8 @@ class PhpDumperTest extends TestCase
         $container = new ContainerBuilder();
         $container->setParameter('container.dumper.inline_factories', true);
         $container->setParameter('container.dumper.inline_class_loader', true);
-        $container->setParameter('lazy_foo_class', \Bar\FooClass::class);
 
-        $container->register('lazy_foo', '%lazy_foo_class%')
+        $container->register('lazy_foo', \Bar\FooClass::class)
             ->addArgument(new Definition(\Bar\FooLazyClass::class))
             ->setPublic(true)
             ->setLazy(true);
@@ -395,7 +394,7 @@ class PhpDumperTest extends TestCase
         $dumper->dump();
     }
 
-    public function provideInvalidFactories()
+    public static function provideInvalidFactories()
     {
         return [
             [['', 'method']],
@@ -765,31 +764,25 @@ class PhpDumperTest extends TestCase
         $dumper = new PhpDumper($container);
         $dumper->setProxyDumper(new NullDumper());
 
-        $message = 'Circular reference detected for service "foo", path: "foo -> bar -> foo". Try running "composer require symfony/proxy-manager-bridge".';
+        $message = 'Circular reference detected for service "foo", path: "foo -> bar -> foo".';
         $this->expectException(ServiceCircularReferenceException::class);
         $this->expectExceptionMessage($message);
 
         $dumper->dump();
     }
 
-    /**
-     * @testWith [false]
-     *           [true]
-     */
-    public function testDedupLazyProxy(bool $asGhostObject)
+    public function testDedupLazyProxy()
     {
         $container = new ContainerBuilder();
         $container->register('foo', 'stdClass')->setLazy(true)->setPublic(true);
         $container->register('bar', 'stdClass')->setLazy(true)->setPublic(true);
+        $container->register('baz', 'stdClass')->setLazy(true)->setPublic(true)->setFactory('foo_bar');
+        $container->register('buz', 'stdClass')->setLazy(true)->setPublic(true)->setFactory('foo_bar');
         $container->compile();
 
         $dumper = new PhpDumper($container);
 
-        if (!$asGhostObject) {
-            $dumper->setProxyDumper(new \DummyProxyDumper());
-        }
-
-        $this->assertStringEqualsFile(self::$fixturesPath.'/php/services_dedup_lazy'.($asGhostObject ? '_ghost' : '_proxy').'.php', $dumper->dump());
+        $this->assertStringEqualsFile(self::$fixturesPath.'/php/services_dedup_lazy.php', $dumper->dump());
     }
 
     public function testLazyArgumentProvideGenerator()
@@ -1109,7 +1102,7 @@ class PhpDumperTest extends TestCase
         $this->assertInstanceOf(\stdClass::class, $listener4);
     }
 
-    public function provideAlmostCircular()
+    public static function provideAlmostCircular()
     {
         yield ['public'];
         yield ['private'];
@@ -1235,6 +1228,11 @@ class PhpDumperTest extends TestCase
             ->register('foo', FooClassWithEnumAttribute::class)
             ->setPublic(true)
             ->addArgument(FooUnitEnum::BAR);
+        $container
+            ->register('bar', \stdClass::class)
+            ->setPublic(true)
+            ->addArgument('%unit_enum%')
+            ->addArgument('%enum_array%');
 
         $container->setParameter('unit_enum', FooUnitEnum::BAR);
         $container->setParameter('enum_array', [FooUnitEnum::BAR, FooUnitEnum::FOO]);
@@ -1252,6 +1250,11 @@ class PhpDumperTest extends TestCase
         $this->assertSame(FooUnitEnum::BAR, $container->getParameter('unit_enum'));
         $this->assertSame([FooUnitEnum::BAR, FooUnitEnum::FOO], $container->getParameter('enum_array'));
         $this->assertStringMatchesFormat(<<<'PHP'
+%A
+    protected function getBarService()
+    {
+        return $this->services['bar'] = new \stdClass(\Symfony\Component\DependencyInjection\Tests\Fixtures\FooUnitEnum::BAR, $this->getParameter('enum_array'));
+    }
 %A
     private function getDynamicParameter(string $name)
     {
@@ -1412,7 +1415,8 @@ PHP
     public function testWither()
     {
         $container = new ContainerBuilder();
-        $container->register(Foo::class);
+        $container->register(Foo::class)
+            ->setAutowired(true);
 
         $container
             ->register('wither', Wither::class)
