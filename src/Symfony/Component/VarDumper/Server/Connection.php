@@ -90,7 +90,7 @@ class Connection
         set_error_handler(fn () => true);
         try {
             return stream_socket_client($this->host, $errno, $errstr, 3, \STREAM_CLIENT_CONNECT | \STREAM_CLIENT_ASYNC_CONNECT) ?: null;
-        } finally {
+       } finally {
             restore_error_handler();
         }
     }

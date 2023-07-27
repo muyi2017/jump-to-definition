@@ -9,15 +9,10 @@
  * file that was distributed with this source code.
  */
 
-namespace Symfony\Contracts\Service\Test;
+namespace Symfony\Component\Validator\Tests\Fixtures;
 
-class_alias(ServiceLocatorTestCase::class, ServiceLocatorTest::class);
-
-if (false) {
-    /**
-     * @deprecated since PHPUnit 9.6
-     */
-    class ServiceLocatorTest
-    {
-    }
+enum TestEnum
+{
+    case FirstCase;
+    case SecondCase;
 }
