@@ -82,12 +82,18 @@ class HtmlDumper extends CliDumper
         $this->styles = static::$themes['dark'] ?? self::$themes['dark'];
     }
 
+    /**
+     * @return void
+     */
     public function setStyles(array $styles)
     {
         $this->headerIsDumped = false;
         $this->styles = $styles + $this->styles;
     }
 
+    /**
+     * @return void
+     */
     public function setTheme(string $themeName)
     {
         if (!isset(static::$themes[$themeName])) {
@@ -101,6 +107,8 @@ class HtmlDumper extends CliDumper
      * Configures display options.
      *
      * @param array $displayOptions A map of display options to customize the behavior
+     *
+     * @return void
      */
     public function setDisplayOptions(array $displayOptions)
     {
@@ -110,6 +118,8 @@ class HtmlDumper extends CliDumper
 
     /**
      * Sets an HTML header that will be dumped once in the output stream.
+     *
+     * @return void
      */
     public function setDumpHeader(?string $header)
     {
@@ -118,6 +128,8 @@ class HtmlDumper extends CliDumper
 
     /**
      * Sets an HTML prefix and suffix that will encapse every single dump.
+     *
+     * @return void
      */
     public function setDumpBoundaries(string $prefix, string $suffix)
     {
@@ -136,6 +148,8 @@ class HtmlDumper extends CliDumper
 
     /**
      * Dumps the HTML header.
+     *
+     * @return string
      */
     protected function getDumpHeader()
     {
@@ -773,6 +787,9 @@ EOHTML
         return $this->dumpHeader = preg_replace('/\s+/', ' ', $line).'</style>'.$this->dumpHeader;
     }
 
+    /**
+     * @return void
+     */
     public function dumpString(Cursor $cursor, string $str, bool $bin, int $cut)
     {
         if ('' === $str && isset($cursor->attr['img-data'], $cursor->attr['content-type'])) {
@@ -788,6 +805,9 @@ EOHTML
         }
     }
 
+    /**
+     * @return void
+     */
     public function enterHash(Cursor $cursor, int $type, string|int|null $class, bool $hasChild)
     {
         if (Cursor::HASH_OBJECT === $type) {
@@ -816,6 +836,9 @@ EOHTML
         }
     }
 
+    /**
+     * @return void
+     */
     public function leaveHash(Cursor $cursor, int $type, string|int|null $class, bool $hasChild, int $cut)
     {
         $this->dumpEllipsis($cursor, $hasChild, $cut);
@@ -862,7 +885,6 @@ EOHTML
         } elseif ('private' === $style) {
             $style .= sprintf(' title="Private property defined in class:&#10;`%s`"', esc($this->utf8Encode($attr['class'])));
         }
-        $map = static::$controlCharsMap;
 
         if (isset($attr['ellipsis'])) {
             $class = 'sf-dump-ellipsis';
@@ -881,6 +903,7 @@ EOHTML
             }
         }
 
+        $map = static::$controlCharsMap;
         $v = "<span class=sf-dump-{$style}>".preg_replace_callback(static::$controlCharsRx, function ($c) use ($map) {
             $s = $b = '<span class="sf-dump-default';
             $c = $c[$i = 0];
@@ -903,6 +926,12 @@ EOHTML
             return $s.'</span>';
         }, $v).'</span>';
 
+        if (!($attr['binary'] ?? false)) {
+            $v = preg_replace_callback(static::$unicodeCharsRx, function ($c) {
+                return '<span class="sf-dump-default>\u{'.strtoupper(dechex(mb_ord($c[0]))).'}</span>';
+            }, $v);
+        }
+
         if (isset($attr['file']) && $href = $this->getSourceLink($attr['file'], $attr['line'] ?? 0)) {
             $attr['href'] = $href;
         }
@@ -917,6 +946,9 @@ EOHTML
         return $v;
     }
 
+    /**
+     * @return void
+     */
     protected function dumpLine(int $depth, bool $endOfValue = false)
     {
         if (-1 === $this->lastDepth) {
@@ -944,7 +976,7 @@ EOHTML
         AbstractDumper::dumpLine($depth);
     }
 
-    private function getSourceLink(string $file, int $line)
+    private function getSourceLink(string $file, int $line): string|false
     {
         $options = $this->extraDisplayOptions + $this->displayOptions;
 
@@ -956,7 +988,7 @@ EOHTML
     }
 }
 
-function esc(string $str)
+function esc(string $str): string
 {
     return htmlspecialchars($str, \ENT_QUOTES, 'UTF-8');
 }

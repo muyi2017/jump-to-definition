@@ -22,6 +22,8 @@ use Symfony\Component\Serializer\Exception\NotNormalizableValueException;
  * Denormalizes a data URI to a {@see \SplFileObject} object.
  *
  * @author Kévin Dunglas <dunglas@gmail.com>
+ *
+ * @final since Symfony 6.3
  */
 class DataUriNormalizer implements NormalizerInterface, DenormalizerInterface, CacheableSupportsMethodInterface
 {
@@ -43,6 +45,17 @@ class DataUriNormalizer implements NormalizerInterface, DenormalizerInterface, C
         }
 
         $this->mimeTypeGuesser = $mimeTypeGuesser;
+    }
+
+    public function getSupportedTypes(?string $format): array
+    {
+        $isCacheable = __CLASS__ === static::class || $this->hasCacheableSupportsMethod();
+
+        return [
+            \SplFileInfo::class => $isCacheable,
+            \SplFileObject::class => $isCacheable,
+            File::class => $isCacheable,
+        ];
     }
 
     public function normalize(mixed $object, string $format = null, array $context = []): string
@@ -118,8 +131,13 @@ class DataUriNormalizer implements NormalizerInterface, DenormalizerInterface, C
         return isset(self::SUPPORTED_TYPES[$type]);
     }
 
+    /**
+     * @deprecated since Symfony 6.3, use "getSupportedTypes()" instead
+     */
     public function hasCacheableSupportsMethod(): bool
     {
+        trigger_deprecation('symfony/serializer', '6.3', 'The "%s()" method is deprecated, use "getSupportedTypes()" instead.', __METHOD__);
+
         return __CLASS__ === static::class;
     }
 

@@ -222,7 +222,7 @@ class DoctrineChoiceLoaderTest extends TestCase
         );
 
         $choices = [$this->obj1, $this->obj2, $this->obj3];
-        $value = function (\stdClass $object) { return $object->name; };
+        $value = fn (\stdClass $object) => $object->name;
 
         $this->repository->expects($this->never())
             ->method('findAll')
@@ -367,7 +367,7 @@ class DoctrineChoiceLoaderTest extends TestCase
         );
 
         $choices = [$this->obj1, $this->obj2, $this->obj3];
-        $value = function (\stdClass $object) { return $object->name; };
+        $value = fn (\stdClass $object) => $object->name;
 
         $this->repository->expects($this->once())
             ->method('findAll')
@@ -416,7 +416,7 @@ class DoctrineChoiceLoaderTest extends TestCase
     public function testPassingIdReaderWithoutSingleIdEntity()
     {
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('The second argument `$idReader` of "Symfony\\Bridge\\Doctrine\\Form\\ChoiceList\\DoctrineChoiceLoader::__construct" must be null when the query cannot be optimized because of composite id fields.');
+        $this->expectExceptionMessage('The second argument "$idReader" of "Symfony\\Bridge\\Doctrine\\Form\\ChoiceList\\DoctrineChoiceLoader::__construct" must be null when the query cannot be optimized because of composite id fields.');
 
         $idReader = $this->createMock(IdReader::class);
         $idReader->expects($this->once())

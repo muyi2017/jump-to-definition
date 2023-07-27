@@ -36,11 +36,14 @@ use Symfony\Component\Notifier\Notifier;
 use Symfony\Component\PropertyAccess\PropertyAccessor;
 use Symfony\Component\PropertyInfo\PropertyInfoExtractorInterface;
 use Symfony\Component\RateLimiter\Policy\TokenBucketLimiter;
+use Symfony\Component\RemoteEvent\RemoteEvent;
+use Symfony\Component\Scheduler\Schedule;
 use Symfony\Component\Semaphore\Semaphore;
 use Symfony\Component\Serializer\Serializer;
 use Symfony\Component\Translation\Translator;
 use Symfony\Component\Uid\Factory\UuidFactory;
 use Symfony\Component\Validator\Validation;
+use Symfony\Component\Webhook\Controller\WebhookController;
 use Symfony\Component\WebLink\HttpHeaderSerializer;
 use Symfony\Component\Workflow\WorkflowEvents;
 
@@ -144,9 +147,7 @@ class Configuration implements ConfigurationInterface
             return ContainerBuilder::willBeAvailable($package, $class, $parentPackages);
         };
 
-        $enableIfStandalone = static function (string $package, string $class) use ($willBeAvailable) {
-            return !class_exists(FullStack::class) && $willBeAvailable($package, $class) ? 'canBeDisabled' : 'canBeEnabled';
-        };
+        $enableIfStandalone = static fn (string $package, string $class) => !class_exists(FullStack::class) && $willBeAvailable($package, $class) ? 'canBeDisabled' : 'canBeEnabled';
 
         $this->addCsrfSection($rootNode);
         $this->addFormSection($rootNode, $enableIfStandalone);
@@ -173,6 +174,7 @@ class Configuration implements ConfigurationInterface
         $this->addLockSection($rootNode, $enableIfStandalone);
         $this->addSemaphoreSection($rootNode, $enableIfStandalone);
         $this->addMessengerSection($rootNode, $enableIfStandalone);
+        $this->addSchedulerSection($rootNode, $enableIfStandalone);
         $this->addRobotsIndexSection($rootNode);
         $this->addHttpClientSection($rootNode, $enableIfStandalone);
         $this->addMailerSection($rootNode, $enableIfStandalone);
@@ -181,11 +183,13 @@ class Configuration implements ConfigurationInterface
         $this->addRateLimiterSection($rootNode, $enableIfStandalone);
         $this->addUidSection($rootNode, $enableIfStandalone);
         $this->addHtmlSanitizerSection($rootNode, $enableIfStandalone);
+        $this->addWebhookSection($rootNode, $enableIfStandalone);
+        $this->addRemoteEventSection($rootNode, $enableIfStandalone);
 
         return $treeBuilder;
     }
 
-    private function addSecretsSection(ArrayNodeDefinition $rootNode)
+    private function addSecretsSection(ArrayNodeDefinition $rootNode): void
     {
         $rootNode
             ->children()
@@ -201,7 +205,7 @@ class Configuration implements ConfigurationInterface
         ;
     }
 
-    private function addCsrfSection(ArrayNodeDefinition $rootNode)
+    private function addCsrfSection(ArrayNodeDefinition $rootNode): void
     {
         $rootNode
             ->children()
@@ -219,7 +223,7 @@ class Configuration implements ConfigurationInterface
         ;
     }
 
-    private function addFormSection(ArrayNodeDefinition $rootNode, callable $enableIfStandalone)
+    private function addFormSection(ArrayNodeDefinition $rootNode, callable $enableIfStandalone): void
     {
         $rootNode
             ->children()
@@ -246,7 +250,7 @@ class Configuration implements ConfigurationInterface
         ;
     }
 
-    private function addHttpCacheSection(ArrayNodeDefinition $rootNode)
+    private function addHttpCacheSection(ArrayNodeDefinition $rootNode): void
     {
         $rootNode
             ->children()
@@ -265,6 +269,10 @@ class Configuration implements ConfigurationInterface
                             ->performNoDeepMerging()
                             ->scalarPrototype()->end()
                         ->end()
+                        ->arrayNode('skip_response_headers')
+                            ->performNoDeepMerging()
+                            ->scalarPrototype()->end()
+                        ->end()
                         ->booleanNode('allow_reload')->end()
                         ->booleanNode('allow_revalidate')->end()
                         ->integerNode('stale_while_revalidate')->end()
@@ -276,7 +284,7 @@ class Configuration implements ConfigurationInterface
         ;
     }
 
-    private function addEsiSection(ArrayNodeDefinition $rootNode)
+    private function addEsiSection(ArrayNodeDefinition $rootNode): void
     {
         $rootNode
             ->children()
@@ -288,7 +296,7 @@ class Configuration implements ConfigurationInterface
         ;
     }
 
-    private function addSsiSection(ArrayNodeDefinition $rootNode)
+    private function addSsiSection(ArrayNodeDefinition $rootNode): void
     {
         $rootNode
             ->children()
@@ -299,7 +307,7 @@ class Configuration implements ConfigurationInterface
             ->end();
     }
 
-    private function addFragmentsSection(ArrayNodeDefinition $rootNode)
+    private function addFragmentsSection(ArrayNodeDefinition $rootNode): void
     {
         $rootNode
             ->children()
@@ -315,7 +323,7 @@ class Configuration implements ConfigurationInterface
         ;
     }
 
-    private function addProfilerSection(ArrayNodeDefinition $rootNode)
+    private function addProfilerSection(ArrayNodeDefinition $rootNode): void
     {
         $rootNode
             ->children()
@@ -335,7 +343,7 @@ class Configuration implements ConfigurationInterface
         ;
     }
 
-    private function addWorkflowSection(ArrayNodeDefinition $rootNode)
+    private function addWorkflowSection(ArrayNodeDefinition $rootNode): void
     {
         $rootNode
             ->fixXmlConfig('workflow')
@@ -598,7 +606,7 @@ class Configuration implements ConfigurationInterface
         ;
     }
 
-    private function addRouterSection(ArrayNodeDefinition $rootNode)
+    private function addRouterSection(ArrayNodeDefinition $rootNode): void
     {
         $rootNode
             ->children()
@@ -631,7 +639,7 @@ class Configuration implements ConfigurationInterface
         ;
     }
 
-    private function addSessionSection(ArrayNodeDefinition $rootNode)
+    private function addSessionSection(ArrayNodeDefinition $rootNode): void
     {
         $rootNode
             ->children()
@@ -680,7 +688,7 @@ class Configuration implements ConfigurationInterface
         ;
     }
 
-    private function addRequestSection(ArrayNodeDefinition $rootNode)
+    private function addRequestSection(ArrayNodeDefinition $rootNode): void
     {
         $rootNode
             ->children()
@@ -693,8 +701,8 @@ class Configuration implements ConfigurationInterface
                             ->useAttributeAsKey('name')
                             ->prototype('array')
                                 ->beforeNormalization()
-                                    ->ifTrue(function ($v) { return \is_array($v) && isset($v['mime_type']); })
-                                    ->then(function ($v) { return $v['mime_type']; })
+                                    ->ifTrue(fn ($v) => \is_array($v) && isset($v['mime_type']))
+                                    ->then(fn ($v) => $v['mime_type'])
                                 ->end()
                                 ->beforeNormalization()->castToArray()->end()
                                 ->prototype('scalar')->end()
@@ -706,7 +714,7 @@ class Configuration implements ConfigurationInterface
         ;
     }
 
-    private function addAssetsSection(ArrayNodeDefinition $rootNode, callable $enableIfStandalone)
+    private function addAssetsSection(ArrayNodeDefinition $rootNode, callable $enableIfStandalone): void
     {
         $rootNode
             ->children()
@@ -802,7 +810,7 @@ class Configuration implements ConfigurationInterface
         ;
     }
 
-    private function addTranslatorSection(ArrayNodeDefinition $rootNode, callable $enableIfStandalone)
+    private function addTranslatorSection(ArrayNodeDefinition $rootNode, callable $enableIfStandalone): void
     {
         $rootNode
             ->children()
@@ -872,7 +880,7 @@ class Configuration implements ConfigurationInterface
         ;
     }
 
-    private function addValidationSection(ArrayNodeDefinition $rootNode, callable $enableIfStandalone)
+    private function addValidationSection(ArrayNodeDefinition $rootNode, callable $enableIfStandalone): void
     {
         $rootNode
             ->children()
@@ -962,7 +970,7 @@ class Configuration implements ConfigurationInterface
         ;
     }
 
-    private function addAnnotationsSection(ArrayNodeDefinition $rootNode, callable $willBeAvailable)
+    private function addAnnotationsSection(ArrayNodeDefinition $rootNode, callable $willBeAvailable): void
     {
         $rootNode
             ->children()
@@ -982,7 +990,7 @@ class Configuration implements ConfigurationInterface
         ;
     }
 
-    private function addSerializerSection(ArrayNodeDefinition $rootNode, callable $enableIfStandalone)
+    private function addSerializerSection(ArrayNodeDefinition $rootNode, callable $enableIfStandalone): void
     {
         $rootNode
             ->children()
@@ -1015,7 +1023,7 @@ class Configuration implements ConfigurationInterface
         ;
     }
 
-    private function addPropertyAccessSection(ArrayNodeDefinition $rootNode, callable $willBeAvailable)
+    private function addPropertyAccessSection(ArrayNodeDefinition $rootNode, callable $willBeAvailable): void
     {
         $rootNode
             ->children()
@@ -1035,7 +1043,7 @@ class Configuration implements ConfigurationInterface
         ;
     }
 
-    private function addPropertyInfoSection(ArrayNodeDefinition $rootNode, callable $enableIfStandalone)
+    private function addPropertyInfoSection(ArrayNodeDefinition $rootNode, callable $enableIfStandalone): void
     {
         $rootNode
             ->children()
@@ -1047,7 +1055,7 @@ class Configuration implements ConfigurationInterface
         ;
     }
 
-    private function addCacheSection(ArrayNodeDefinition $rootNode, callable $willBeAvailable)
+    private function addCacheSection(ArrayNodeDefinition $rootNode, callable $willBeAvailable): void
     {
         $rootNode
             ->children()
@@ -1138,7 +1146,7 @@ class Configuration implements ConfigurationInterface
         ;
     }
 
-    private function addPhpErrorsSection(ArrayNodeDefinition $rootNode)
+    private function addPhpErrorsSection(ArrayNodeDefinition $rootNode): void
     {
         $rootNode
             ->children()
@@ -1169,7 +1177,7 @@ class Configuration implements ConfigurationInterface
                                 })
                             ->end()
                             ->validate()
-                                ->ifTrue(function ($v) { return !(\is_int($v) || \is_bool($v) || \is_array($v)); })
+                                ->ifTrue(fn ($v) => !(\is_int($v) || \is_bool($v) || \is_array($v)))
                                 ->thenInvalid('The "php_errors.log" parameter should be either an integer, a boolean, or an array')
                             ->end()
                         ->end()
@@ -1184,7 +1192,7 @@ class Configuration implements ConfigurationInterface
         ;
     }
 
-    private function addExceptionsSection(ArrayNodeDefinition $rootNode)
+    private function addExceptionsSection(ArrayNodeDefinition $rootNode): void
     {
         $logLevels = (new \ReflectionClass(LogLevel::class))->getConstants();
 
@@ -1202,6 +1210,8 @@ class Configuration implements ConfigurationInterface
                                 return $v;
                             }
 
+                            trigger_deprecation('symfony/framework-bundle', '6.3', '"framework:exceptions" tag is deprecated. Unwrap it and replace your "framework:exception" tags\' "name" attribute by "class".');
+
                             $v = $v['exception'];
                             unset($v['exception']);
 
@@ -1218,7 +1228,7 @@ class Configuration implements ConfigurationInterface
                             ->scalarNode('log_level')
                                 ->info('The level of log message. Null to let Symfony decide.')
                                 ->validate()
-                                    ->ifTrue(function ($v) use ($logLevels) { return null !== $v && !\in_array($v, $logLevels, true); })
+                                    ->ifTrue(fn ($v) => null !== $v && !\in_array($v, $logLevels, true))
                                     ->thenInvalid(sprintf('The log level is not valid. Pick one among "%s".', implode('", "', $logLevels)))
                                 ->end()
                                 ->defaultNull()
@@ -1226,11 +1236,11 @@ class Configuration implements ConfigurationInterface
                             ->scalarNode('status_code')
                                 ->info('The status code of the response. Null or 0 to let Symfony decide.')
                                 ->beforeNormalization()
-                                    ->ifTrue(function ($v) { return 0 === $v; })
-                                    ->then(function ($v) { return null; })
+                                    ->ifTrue(fn ($v) => 0 === $v)
+                                    ->then(fn ($v) => null)
                                 ->end()
                                 ->validate()
-                                    ->ifTrue(function ($v) { return null !== $v && ($v < 100 || $v > 599); })
+                                    ->ifTrue(fn ($v) => null !== $v && ($v < 100 || $v > 599))
                                     ->thenInvalid('The status code is not valid. Pick a value between 100 and 599.')
                                 ->end()
                                 ->defaultNull()
@@ -1242,7 +1252,7 @@ class Configuration implements ConfigurationInterface
         ;
     }
 
-    private function addLockSection(ArrayNodeDefinition $rootNode, callable $enableIfStandalone)
+    private function addLockSection(ArrayNodeDefinition $rootNode, callable $enableIfStandalone): void
     {
         $rootNode
             ->children()
@@ -1250,14 +1260,14 @@ class Configuration implements ConfigurationInterface
                     ->info('Lock configuration')
                     ->{$enableIfStandalone('symfony/lock', Lock::class)}()
                     ->beforeNormalization()
-                        ->ifString()->then(function ($v) { return ['enabled' => true, 'resources' => $v]; })
+                        ->ifString()->then(fn ($v) => ['enabled' => true, 'resources' => $v])
                     ->end()
                     ->beforeNormalization()
-                        ->ifTrue(function ($v) { return \is_array($v) && !isset($v['enabled']); })
-                        ->then(function ($v) { return $v + ['enabled' => true]; })
+                        ->ifTrue(fn ($v) => \is_array($v) && !isset($v['enabled']))
+                        ->then(fn ($v) => $v + ['enabled' => true])
                     ->end()
                     ->beforeNormalization()
-                        ->ifTrue(function ($v) { return \is_array($v) && !isset($v['resources']) && !isset($v['resource']); })
+                        ->ifTrue(fn ($v) => \is_array($v) && !isset($v['resources']) && !isset($v['resource']))
                         ->then(function ($v) {
                             $e = $v['enabled'];
                             unset($v['enabled']);
@@ -1267,7 +1277,7 @@ class Configuration implements ConfigurationInterface
                     ->end()
                     ->addDefaultsIfNotSet()
                     ->validate()
-                        ->ifTrue(static function (array $config) { return $config['enabled'] && !$config['resources']; })
+                        ->ifTrue(static fn (array $config) => $config['enabled'] && !$config['resources'])
                         ->thenInvalid('At least one resource must be defined.')
                     ->end()
                     ->fixXmlConfig('resource')
@@ -1277,10 +1287,10 @@ class Configuration implements ConfigurationInterface
                             ->useAttributeAsKey('name')
                             ->defaultValue(['default' => [class_exists(SemaphoreStore::class) && SemaphoreStore::isSupported() ? 'semaphore' : 'flock']])
                             ->beforeNormalization()
-                                ->ifString()->then(function ($v) { return ['default' => $v]; })
+                                ->ifString()->then(fn ($v) => ['default' => $v])
                             ->end()
                             ->beforeNormalization()
-                                ->ifTrue(function ($v) { return \is_array($v) && array_is_list($v); })
+                                ->ifTrue(fn ($v) => \is_array($v) && array_is_list($v))
                                 ->then(function ($v) {
                                     $resources = [];
                                     foreach ($v as $resource) {
@@ -1295,7 +1305,7 @@ class Configuration implements ConfigurationInterface
                             ->end()
                             ->prototype('array')
                                 ->performNoDeepMerging()
-                                ->beforeNormalization()->ifString()->then(function ($v) { return [$v]; })->end()
+                                ->beforeNormalization()->ifString()->then(fn ($v) => [$v])->end()
                                 ->prototype('scalar')->end()
                             ->end()
                         ->end()
@@ -1305,7 +1315,7 @@ class Configuration implements ConfigurationInterface
         ;
     }
 
-    private function addSemaphoreSection(ArrayNodeDefinition $rootNode, callable $enableIfStandalone)
+    private function addSemaphoreSection(ArrayNodeDefinition $rootNode, callable $enableIfStandalone): void
     {
         $rootNode
             ->children()
@@ -1313,14 +1323,14 @@ class Configuration implements ConfigurationInterface
                     ->info('Semaphore configuration')
                     ->{$enableIfStandalone('symfony/semaphore', Semaphore::class)}()
                     ->beforeNormalization()
-                        ->ifString()->then(function ($v) { return ['enabled' => true, 'resources' => $v]; })
+                        ->ifString()->then(fn ($v) => ['enabled' => true, 'resources' => $v])
                     ->end()
                     ->beforeNormalization()
-                        ->ifTrue(function ($v) { return \is_array($v) && !isset($v['enabled']); })
-                        ->then(function ($v) { return $v + ['enabled' => true]; })
+                        ->ifTrue(fn ($v) => \is_array($v) && !isset($v['enabled']))
+                        ->then(fn ($v) => $v + ['enabled' => true])
                     ->end()
                     ->beforeNormalization()
-                        ->ifTrue(function ($v) { return \is_array($v) && !isset($v['resources']) && !isset($v['resource']); })
+                        ->ifTrue(fn ($v) => \is_array($v) && !isset($v['resources']) && !isset($v['resource']))
                         ->then(function ($v) {
                             $e = $v['enabled'];
                             unset($v['enabled']);
@@ -1336,10 +1346,10 @@ class Configuration implements ConfigurationInterface
                             ->useAttributeAsKey('name')
                             ->requiresAtLeastOneElement()
                             ->beforeNormalization()
-                                ->ifString()->then(function ($v) { return ['default' => $v]; })
+                                ->ifString()->then(fn ($v) => ['default' => $v])
                             ->end()
                             ->beforeNormalization()
-                                ->ifTrue(function ($v) { return \is_array($v) && array_is_list($v); })
+                                ->ifTrue(fn ($v) => \is_array($v) && array_is_list($v))
                                 ->then(function ($v) {
                                     $resources = [];
                                     foreach ($v as $resource) {
@@ -1360,7 +1370,7 @@ class Configuration implements ConfigurationInterface
         ;
     }
 
-    private function addWebLinkSection(ArrayNodeDefinition $rootNode, callable $enableIfStandalone)
+    private function addWebLinkSection(ArrayNodeDefinition $rootNode, callable $enableIfStandalone): void
     {
         $rootNode
             ->children()
@@ -1372,7 +1382,7 @@ class Configuration implements ConfigurationInterface
         ;
     }
 
-    private function addMessengerSection(ArrayNodeDefinition $rootNode, callable $enableIfStandalone)
+    private function addMessengerSection(ArrayNodeDefinition $rootNode, callable $enableIfStandalone): void
     {
         $rootNode
             ->children()
@@ -1518,6 +1528,11 @@ class Configuration implements ConfigurationInterface
                                 ->thenInvalid('The "framework.messenger.reset_on_message" configuration option can be set to "true" only. To prevent services resetting after each message you can set the "--no-reset" option in "messenger:consume" command.')
                             ->end()
                         ->end()
+                        ->arrayNode('stop_worker_on_signals')
+                            ->defaultValue([])
+                            ->info('A list of signals that should stop the worker; defaults to SIGTERM and SIGINT.')
+                            ->integerPrototype()->end()
+                        ->end()
                         ->scalarNode('default_bus')->defaultNull()->end()
                         ->arrayNode('buses')
                             ->defaultValue(['messenger.bus.default' => ['default_middleware' => ['enabled' => true, 'allow_no_handlers' => false, 'allow_no_senders' => true], 'middleware' => []]])
@@ -1598,7 +1613,19 @@ class Configuration implements ConfigurationInterface
         ;
     }
 
-    private function addRobotsIndexSection(ArrayNodeDefinition $rootNode)
+    private function addSchedulerSection(ArrayNodeDefinition $rootNode, callable $enableIfStandalone): void
+    {
+        $rootNode
+            ->children()
+                ->arrayNode('scheduler')
+                    ->info('Scheduler configuration')
+                    ->{$enableIfStandalone('symfony/scheduler', Schedule::class)}()
+                ->end()
+            ->end()
+        ;
+    }
+
+    private function addRobotsIndexSection(ArrayNodeDefinition $rootNode): void
     {
         $rootNode
             ->children()
@@ -1611,7 +1638,7 @@ class Configuration implements ConfigurationInterface
         ;
     }
 
-    private function addHttpClientSection(ArrayNodeDefinition $rootNode, callable $enableIfStandalone)
+    private function addHttpClientSection(ArrayNodeDefinition $rootNode, callable $enableIfStandalone): void
     {
         $rootNode
             ->children()
@@ -1648,6 +1675,11 @@ class Configuration implements ConfigurationInterface
                                 ->arrayNode('headers')
                                     ->info('Associative array: header => value(s).')
                                     ->useAttributeAsKey('name')
+                                    ->normalizeKeys(false)
+                                    ->variablePrototype()->end()
+                                ->end()
+                                ->arrayNode('vars')
+                                    ->info('Associative array: the default vars used to expand the templated URI.')
                                     ->normalizeKeys(false)
                                     ->variablePrototype()->end()
                                 ->end()
@@ -1722,6 +1754,11 @@ class Configuration implements ConfigurationInterface
                                         ->variableNode('pin-sha256')->end()
                                         ->variableNode('md5')->end()
                                     ->end()
+                                ->end()
+                                ->arrayNode('extra')
+                                    ->info('Extra options for specific HTTP client')
+                                    ->normalizeKeys(false)
+                                    ->variablePrototype()->end()
                                 ->end()
                                 ->append($this->addHttpClientRetrySection())
                             ->end()
@@ -1866,6 +1903,11 @@ class Configuration implements ConfigurationInterface
                                             ->variableNode('md5')->end()
                                         ->end()
                                     ->end()
+                                    ->arrayNode('extra')
+                                        ->info('Extra options for specific HTTP client')
+                                        ->normalizeKeys(false)
+                                        ->variablePrototype()->end()
+                                    ->end()
                                     ->append($this->addHttpClientRetrySection())
                                 ->end()
                             ->end()
@@ -1927,9 +1969,7 @@ class Configuration implements ConfigurationInterface
                                 ->arrayNode('methods')
                                     ->beforeNormalization()
                                     ->ifArray()
-                                        ->then(function ($v) {
-                                            return array_map('strtoupper', $v);
-                                        })
+                                        ->then(fn ($v) => array_map('strtoupper', $v))
                                     ->end()
                                     ->prototype('scalar')->end()
                                     ->info('A list of HTTP methods that triggers a retry for this status code. When empty, all methods are retried')
@@ -1947,7 +1987,7 @@ class Configuration implements ConfigurationInterface
         ;
     }
 
-    private function addMailerSection(ArrayNodeDefinition $rootNode, callable $enableIfStandalone)
+    private function addMailerSection(ArrayNodeDefinition $rootNode, callable $enableIfStandalone): void
     {
         $rootNode
             ->children()
@@ -1955,7 +1995,7 @@ class Configuration implements ConfigurationInterface
                     ->info('Mailer configuration')
                     ->{$enableIfStandalone('symfony/mailer', Mailer::class)}()
                     ->validate()
-                        ->ifTrue(function ($v) { return isset($v['dsn']) && \count($v['transports']); })
+                        ->ifTrue(fn ($v) => isset($v['dsn']) && \count($v['transports']))
                         ->thenInvalid('"dsn" and "transports" cannot be used together.')
                     ->end()
                     ->fixXmlConfig('transport')
@@ -1975,9 +2015,7 @@ class Configuration implements ConfigurationInterface
                                     ->performNoDeepMerging()
                                     ->beforeNormalization()
                                     ->ifArray()
-                                        ->then(function ($v) {
-                                            return array_filter(array_values($v));
-                                        })
+                                        ->then(fn ($v) => array_filter(array_values($v)))
                                     ->end()
                                     ->prototype('scalar')->end()
                                 ->end()
@@ -1989,8 +2027,8 @@ class Configuration implements ConfigurationInterface
                             ->prototype('array')
                                 ->normalizeKeys(false)
                                 ->beforeNormalization()
-                                    ->ifTrue(function ($v) { return !\is_array($v) || array_keys($v) !== ['value']; })
-                                    ->then(function ($v) { return ['value' => $v]; })
+                                    ->ifTrue(fn ($v) => !\is_array($v) || array_keys($v) !== ['value'])
+                                    ->then(fn ($v) => ['value' => $v])
                                 ->end()
                                 ->children()
                                     ->variableNode('value')->end()
@@ -2003,13 +2041,16 @@ class Configuration implements ConfigurationInterface
         ;
     }
 
-    private function addNotifierSection(ArrayNodeDefinition $rootNode, callable $enableIfStandalone)
+    private function addNotifierSection(ArrayNodeDefinition $rootNode, callable $enableIfStandalone): void
     {
         $rootNode
             ->children()
                 ->arrayNode('notifier')
                     ->info('Notifier configuration')
                     ->{$enableIfStandalone('symfony/notifier', Notifier::class)}()
+                    ->children()
+                        ->scalarNode('message_bus')->defaultNull()->info('The message bus to use. Defaults to the default bus if the Messenger component is installed.')->end()
+                    ->end()
                     ->fixXmlConfig('chatter_transport')
                     ->children()
                         ->arrayNode('chatter_transports')
@@ -2052,7 +2093,48 @@ class Configuration implements ConfigurationInterface
         ;
     }
 
-    private function addRateLimiterSection(ArrayNodeDefinition $rootNode, callable $enableIfStandalone)
+    private function addWebhookSection(ArrayNodeDefinition $rootNode, callable $enableIfStandalone): void
+    {
+        $rootNode
+            ->children()
+                ->arrayNode('webhook')
+                    ->info('Webhook configuration')
+                    ->{$enableIfStandalone('symfony/webhook', WebhookController::class)}()
+                    ->children()
+                        ->scalarNode('message_bus')->defaultValue('messenger.default_bus')->info('The message bus to use.')->end()
+                        ->arrayNode('routing')
+                            ->normalizeKeys(false)
+                            ->useAttributeAsKey('type')
+                            ->prototype('array')
+                                ->children()
+                                ->scalarNode('service')
+                                    ->isRequired()
+                                    ->cannotBeEmpty()
+                                ->end()
+                                ->scalarNode('secret')
+                                    ->defaultValue('')
+                                ->end()
+                            ->end()
+                        ->end()
+                    ->end()
+                ->end()
+            ->end()
+        ;
+    }
+
+    private function addRemoteEventSection(ArrayNodeDefinition $rootNode, callable $enableIfStandalone)
+    {
+        $rootNode
+            ->children()
+                ->arrayNode('remote-event')
+                    ->info('RemoteEvent configuration')
+                    ->{$enableIfStandalone('symfony/remote-event', RemoteEvent::class)}()
+                ->end()
+            ->end()
+        ;
+    }
+
+    private function addRateLimiterSection(ArrayNodeDefinition $rootNode, callable $enableIfStandalone): void
     {
         $rootNode
             ->children()
@@ -2061,7 +2143,7 @@ class Configuration implements ConfigurationInterface
                     ->{$enableIfStandalone('symfony/rate-limiter', TokenBucketLimiter::class)}()
                     ->fixXmlConfig('limiter')
                     ->beforeNormalization()
-                        ->ifTrue(function ($v) { return \is_array($v) && !isset($v['limiters']) && !isset($v['limiter']); })
+                        ->ifTrue(fn ($v) => \is_array($v) && !isset($v['limiters']) && !isset($v['limiter']))
                         ->then(function (array $v) {
                             $newV = [
                                 'enabled' => $v['enabled'] ?? true,
@@ -2097,7 +2179,6 @@ class Configuration implements ConfigurationInterface
                                     ->end()
                                     ->integerNode('limit')
                                         ->info('The maximum allowed hits in a fixed interval or burst')
-                                        ->isRequired()
                                     ->end()
                                     ->scalarNode('interval')
                                         ->info('Configures the fixed interval if "policy" is set to "fixed_window" or "sliding_window". The value must be a number followed by "second", "minute", "hour", "day", "week" or "month" (or their plural equivalent).')
@@ -2112,6 +2193,10 @@ class Configuration implements ConfigurationInterface
                                         ->end()
                                     ->end()
                                 ->end()
+                                ->validate()
+                                    ->ifTrue(fn ($v) => 'no_limit' !== $v['policy'] && !isset($v['limit']))
+                                    ->thenInvalid('A limit must be provided when using a policy different than "no_limit".')
+                                ->end()
                             ->end()
                         ->end()
                     ->end()
@@ -2120,7 +2205,7 @@ class Configuration implements ConfigurationInterface
         ;
     }
 
-    private function addUidSection(ArrayNodeDefinition $rootNode, callable $enableIfStandalone)
+    private function addUidSection(ArrayNodeDefinition $rootNode, callable $enableIfStandalone): void
     {
         $rootNode
             ->children()
@@ -2153,7 +2238,7 @@ class Configuration implements ConfigurationInterface
         ;
     }
 
-    private function addHtmlSanitizerSection(ArrayNodeDefinition $rootNode, callable $enableIfStandalone)
+    private function addHtmlSanitizerSection(ArrayNodeDefinition $rootNode, callable $enableIfStandalone): void
     {
         $rootNode
             ->children()

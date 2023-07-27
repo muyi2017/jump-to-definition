@@ -636,17 +636,17 @@ class Form implements \IteratorAggregate, FormInterface, ClearableErrorsInterfac
             return $isEmptyCallback($this->modelData);
         }
 
-        return FormUtil::isEmpty($this->modelData) ||
+        return FormUtil::isEmpty($this->modelData)
             // arrays, countables
-            (is_countable($this->modelData) && 0 === \count($this->modelData)) ||
+            || (is_countable($this->modelData) && 0 === \count($this->modelData))
             // traversables that are not countable
-            ($this->modelData instanceof \Traversable && 0 === iterator_count($this->modelData));
+            || ($this->modelData instanceof \Traversable && 0 === iterator_count($this->modelData));
     }
 
     public function isValid(): bool
     {
         if (!$this->submitted) {
-            throw new LogicException('Cannot check if an unsubmitted form is valid. Call Form::isSubmitted() before Form::isValid().');
+            throw new LogicException('Cannot check if an unsubmitted form is valid. Call Form::isSubmitted() and ensure that it\'s true before calling Form::isValid().');
         }
 
         if ($this->isDisabled()) {
@@ -930,9 +930,7 @@ class Form implements \IteratorAggregate, FormInterface, ClearableErrorsInterfac
             return;
         }
 
-        uksort($children, static function ($a, $b) use ($c): int {
-            return [$c[$b]['p'], $c[$a]['i']] <=> [$c[$a]['p'], $c[$b]['i']];
-        });
+        uksort($children, static fn ($a, $b): int => [$c[$b]['p'], $c[$a]['i']] <=> [$c[$a]['p'], $c[$b]['i']]);
     }
 
     /**

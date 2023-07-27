@@ -14,6 +14,7 @@ namespace Symfony\Component\BrowserKit\Tests;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\BrowserKit\CookieJar;
 use Symfony\Component\BrowserKit\Exception\BadMethodCallException;
+use Symfony\Component\BrowserKit\Exception\InvalidArgumentException;
 use Symfony\Component\BrowserKit\History;
 use Symfony\Component\BrowserKit\Request;
 use Symfony\Component\BrowserKit\Response;
@@ -294,12 +295,8 @@ class AbstractBrowserTest extends TestCase
         $client->setNextResponse(new Response('<html><a href="/foo">foobar</a></html>'));
         $client->request('GET', 'http://www.example.com/foo/foobar');
 
-        try {
-            $client->clickLink('foo');
-            $this->fail('->clickLink() throws a \InvalidArgumentException if the link could not be found');
-        } catch (\Exception $e) {
-            $this->assertInstanceOf(\InvalidArgumentException::class, $e, '->clickLink() throws a \InvalidArgumentException if the link could not be found');
-        }
+        $this->expectException(\InvalidArgumentException::class);
+        $client->clickLink('foo');
     }
 
     public function testClickForm()
@@ -350,15 +347,14 @@ class AbstractBrowserTest extends TestCase
         $client->setNextResponse(new Response('<html><form action="/foo"><input type="submit" /></form></html>'));
         $client->request('GET', 'http://www.example.com/foo/foobar');
 
-        try {
-            $client->submitForm('Register', [
-                'username' => 'username',
-                'password' => 'password',
-            ], 'POST');
-            $this->fail('->submitForm() throws a \InvalidArgumentException if the form could not be found');
-        } catch (\Exception $e) {
-            $this->assertInstanceOf(\InvalidArgumentException::class, $e, '->submitForm() throws a \InvalidArgumentException if the form could not be found');
-        }
+        $this->expectExceptionObject(
+            new InvalidArgumentException('There is no button with "Register" as its content, id, value or name.')
+        );
+
+        $client->submitForm('Register', [
+            'username' => 'username',
+            'password' => 'password',
+        ], 'POST');
     }
 
     public function testSubmitPreserveAuth()

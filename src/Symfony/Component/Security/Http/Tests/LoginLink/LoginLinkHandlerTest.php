@@ -63,15 +63,14 @@ class LoginLinkHandlerTest extends TestCase
             ->method('generate')
             ->with(
                 'app_check_login_link_route',
-                $this->callback(function ($parameters) use ($extraProperties) {
-                    return 'weaverryan' == $parameters['user']
-                        && isset($parameters['expires'])
-                        && isset($parameters['hash'])
-                         // allow a small expiration offset to avoid time-sensitivity
-                        && abs(time() + 600 - $parameters['expires']) <= 1
-                        // make sure hash is what we expect
-                        && $parameters['hash'] === $this->createSignatureHash('weaverryan', $parameters['expires'], $extraProperties);
-                }),
+                $this->callback(fn ($parameters) => 'weaverryan' === $parameters['user']
+                    && isset($parameters['expires'])
+                    && isset($parameters['hash'])
+                     // allow a small expiration offset to avoid time-sensitivity
+                    && abs(time() + 600 - $parameters['expires']) <= 1
+                    // make sure hash is what we expect
+                    && $parameters['hash'] === $this->createSignatureHash('weaverryan', $parameters['expires'], $extraProperties)
+                ),
                 UrlGeneratorInterface::ABSOLUTE_URL
             )
             ->willReturn('https://example.com/login/verify?user=weaverryan&hash=abchash&expires=1601235000');
@@ -135,15 +134,14 @@ class LoginLinkHandlerTest extends TestCase
             ->method('generate')
             ->with(
                 'app_check_login_link_route',
-                $this->callback(function ($parameters) use ($extraProperties) {
-                    return 'weaverryan' == $parameters['user']
-                        && isset($parameters['expires'])
-                         // allow a small expiration offset to avoid time-sensitivity
-                        && abs(time() + 1000 - $parameters['expires']) <= 1
-                        && isset($parameters['hash'])
-                        // make sure hash is what we expect
-                        && $parameters['hash'] === $this->createSignatureHash('weaverryan', $parameters['expires'], $extraProperties);
-                }),
+                $this->callback(fn ($parameters) => 'weaverryan' === $parameters['user']
+                    && isset($parameters['expires'])
+                     // allow a small expiration offset to avoid time-sensitivity
+                    && abs(time() + 1000 - $parameters['expires']) <= 1
+                    && isset($parameters['hash'])
+                    // make sure hash is what we expect
+                    && $parameters['hash'] === $this->createSignatureHash('weaverryan', $parameters['expires'], $extraProperties)
+                ),
                 UrlGeneratorInterface::ABSOLUTE_URL
             )
             ->willReturn('https://example.com/login/verify?user=weaverryan&hash=abchash&expires=1654244256');

@@ -28,7 +28,7 @@ class MaxIdLengthAdapterTest extends TestCase
             ->method('doHave')
             ->willReturnCallback(function (...$args) {
                 static $series = [
-                    ['----------:nWfzGiCgLczv3SSUzXL3kg:'],
+                    ['----------:z5XrNUPebf0nPxQwjc6C1A:'],
                     ['----------:---------------------------------------'],
                 ];
 

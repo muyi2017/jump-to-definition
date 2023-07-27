@@ -60,7 +60,7 @@ class ClassMetadata implements ClassMetadataInterface
         return $this->name;
     }
 
-    public function addAttributeMetadata(AttributeMetadataInterface $attributeMetadata)
+    public function addAttributeMetadata(AttributeMetadataInterface $attributeMetadata): void
     {
         $this->attributesMetadata[$attributeMetadata->getName()] = $attributeMetadata;
     }
@@ -70,7 +70,7 @@ class ClassMetadata implements ClassMetadataInterface
         return $this->attributesMetadata;
     }
 
-    public function merge(ClassMetadataInterface $classMetadata)
+    public function merge(ClassMetadataInterface $classMetadata): void
     {
         foreach ($classMetadata->getAttributesMetadata() as $attributeMetadata) {
             if (isset($this->attributesMetadata[$attributeMetadata->getName()])) {
@@ -95,7 +95,7 @@ class ClassMetadata implements ClassMetadataInterface
         return $this->classDiscriminatorMapping;
     }
 
-    public function setClassDiscriminatorMapping(ClassDiscriminatorMapping $mapping = null)
+    public function setClassDiscriminatorMapping(ClassDiscriminatorMapping $mapping = null): void
     {
         if (1 > \func_num_args()) {
             trigger_deprecation('symfony/serializer', '6.2', 'Calling "%s()" without any arguments is deprecated, pass null explicitly instead.', __METHOD__);

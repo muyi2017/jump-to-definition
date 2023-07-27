@@ -11,6 +11,7 @@ MAILER_DSN=mailjet+smtp://ACCESS_KEY:SECRET_KEY@default
 
 # API
 MAILER_DSN=mailjet+api://ACCESS_KEY:SECRET_KEY@default
+MAILER_DSN=mailjet+api://ACCESS_KEY:SECRET_KEY@default?sandbox=true
 ```
 
 where:

@@ -50,4 +50,13 @@ class TransportNamesStampTest extends TestCase
         $this->assertInstanceOf(TransportNamesStamp::class, $deserializedStamp);
         $this->assertEquals($stamp, $deserializedStamp);
     }
+
+    public function testGetIndividualSender()
+    {
+        $stamp = new TransportNamesStamp('first_transport');
+        $stampSenders = $stamp->getTransportNames();
+
+        $this->assertCount(1, $stampSenders);
+        $this->assertSame('first_transport', $stampSenders[0]);
+    }
 }

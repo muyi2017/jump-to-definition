@@ -42,18 +42,16 @@ class PersistentRememberMeHandlerTest extends TestCase
         $this->requestStack = new RequestStack();
         $this->request = Request::create('/login');
         $this->requestStack->push($this->request);
-        $this->handler = new PersistentRememberMeHandler($this->tokenProvider, 'secret', $this->userProvider, $this->requestStack, []);
+        $this->handler = new PersistentRememberMeHandler($this->tokenProvider, $this->userProvider, $this->requestStack, []);
     }
 
     public function testCreateRememberMeCookie()
     {
         $this->tokenProvider->expects($this->once())
             ->method('createNewToken')
-            ->with($this->callback(function ($persistentToken) {
-                return $persistentToken instanceof PersistentToken
-                    && 'wouter' === $persistentToken->getUserIdentifier()
-                    && InMemoryUser::class === $persistentToken->getClass();
-            }));
+            ->with($this->callback(fn ($persistentToken) => $persistentToken instanceof PersistentToken
+                && 'wouter' === $persistentToken->getUserIdentifier()
+                && InMemoryUser::class === $persistentToken->getClass()));
 
         $this->handler->createRememberMeCookie(new InMemoryUser('wouter', null));
     }
@@ -106,7 +104,7 @@ class PersistentRememberMeHandlerTest extends TestCase
     public function testConsumeRememberMeCookieValidByValidatorWithoutUpdate()
     {
         $verifier = $this->createMock(TokenVerifierInterface::class);
-        $handler = new PersistentRememberMeHandler($this->tokenProvider, 'secret', $this->userProvider, $this->requestStack, [], null, $verifier);
+        $handler = new PersistentRememberMeHandler($this->tokenProvider, $this->userProvider, $this->requestStack, [], null, $verifier);
 
         $persistentToken = new PersistentToken(InMemoryUser::class, 'wouter', 'series1', 'tokenvalue', new \DateTime('30 seconds'));
 
